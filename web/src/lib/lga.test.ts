@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import pivots from "@/data/info-pivots.json"
 import { crosswalk, lgaRows, lgaUnits, statewide } from "@/lib/data"
 
+import cbs201314 from "./__fixtures__/cbs-lga-2013-14.json"
 import {
   areaHistory,
   areaYear,
@@ -19,6 +20,7 @@ import {
   unitsForFy,
   type LgaSort,
 } from "./lga"
+import { round } from "./stats"
 import { annualStatewide } from "./statewide"
 
 const P = pivots.pivots as unknown as Record<string, Record<string, Record<string, number>>>
@@ -29,7 +31,61 @@ describe("rebuildUnits (TypeScript port of the Python grouping)", () => {
   })
 
   it("rebuilds the 44 rows printed in the CBS FY 2013/14 release", () => {
-    expect(unitsForFy(lgaUnits, "2013-14")).toHaveLength(44)
+    // Transcribed from original/SA Gaming Data/Gaming Machine Revenue by ABS LGA/2013-14.pdf.
+    const printed = cbs201314.rows
+    expect(printed).toHaveLength(44)
+    expect(printed.reduce((s, r) => s + r.venues, 0)).toBe(cbs201314.total.venues)
+    expect(printed.reduce((s, r) => s + r.machines, 0)).toBe(cbs201314.total.machines)
+    const rebuilt = [...unitsForFy(lgaUnits, "2013-14")].sort((a, b) => a.ngr - b.ngr)
+    const rows = [...printed].sort((a, b) => a.ngr - b.ngr)
+    expect(rebuilt.map((u) => u.label.split(", ").length)).toEqual(
+      // "Orroroo/Carrieton" and "Karoonda/East Murray" are one council each.
+      rows.map((r) => r.label.split(", ").length)
+    )
+    expect(
+      rebuilt.map((u) => ({ venues: u.premises, machines: u.machines, perVenue: u.avgPerVenue }))
+    ).toEqual(
+      rows.map((r) => ({
+        venues: r.venues,
+        // The documented exception: CBS printed 109 machines for Light and Mallala, but the
+        // workbook's halves (54.5 + 55) rebuild to 110. scripts/verify_pdfs.py lists it.
+        machines: r.label === "Light, Mallala" ? 110 : r.machines,
+        perVenue: r.ngrPerVenue,
+      }))
+    )
+    // NGR matches to the cent except where the workbook's equal split lost a cent in rounding
+    // (thirds and quarters stored to the cent); verify_pdfs.py allows a cent per workbook row.
+    const off = rebuilt
+      .map((u, i) => ({
+        label: u.label,
+        rows: u.workbookRows,
+        diff: round(u.ngr - rows[i].ngr, 2),
+      }))
+      .filter((d) => d.diff !== 0)
+    expect(off).toEqual([
+      { label: "Mount Remarkable, Orroroo Carrieton, Peterborough", rows: 4, diff: 0.01 },
+      { label: "Kangaroo Island, Victor Harbor, Yankalilla", rows: 3, diff: -0.01 },
+    ])
+    for (const d of off) expect(Math.abs(d.diff)).toBeLessThanOrEqual(0.01 * d.rows + 0.005)
+  })
+
+  it("rebuilds as many rows as CBS printed in every release", () => {
+    // Counted from the twelve LGA PDFs in original/ (FY 2021/22 wraps one row over two lines).
+    const counts = Object.fromEntries(LGA_FYS.map((fy) => [fy, unitsForFy(lgaUnits, fy).length]))
+    expect(counts).toEqual({
+      "2013-14": 44,
+      "2014-15": 44,
+      "2015-16": 44,
+      "2016-17": 44,
+      "2017-18": 44,
+      "2018-19": 44,
+      "2019-20": 44,
+      "2020-21": 44,
+      "2021-22": 44,
+      "2022-23": 49,
+      "2023-24": 48,
+      "2024-25": 48,
+    })
   })
 
   it("recovers published group totals from the equal split (CBS FY 2013/14 PDF)", () => {

@@ -1,0 +1,318 @@
+{
+  "source": "CBS, Net Gambling Revenue Grouped by Local Government Area (Council) 2013-2014 (original/SA Gaming Data/Gaming Machine Revenue by ABS LGA/2013-14.pdf), rows transcribed as printed",
+  "total": {
+    "venues": 551,
+    "machines": 12561,
+    "ngr": 731010894.63
+  },
+  "rows": [
+    {
+      "label": "Adelaide",
+      "venues": 53,
+      "machines": 1016,
+      "ngr": 28684768.59,
+      "ngrPerVenue": 541222.05
+    },
+    {
+      "label": "Adelaide Hills",
+      "venues": 17,
+      "machines": 222,
+      "ngr": 5121574.88,
+      "ngrPerVenue": 301269.11
+    },
+    {
+      "label": "Alexandria",
+      "venues": 13,
+      "machines": 256,
+      "ngr": 8137654.6,
+      "ngrPerVenue": 625973.43
+    },
+    {
+      "label": "Barossa",
+      "venues": 15,
+      "machines": 243,
+      "ngr": 6642145.41,
+      "ngrPerVenue": 442809.69
+    },
+    {
+      "label": "Barunga West, Copper Coast",
+      "venues": 16,
+      "machines": 258,
+      "ngr": 10277669.86,
+      "ngrPerVenue": 642354.37
+    },
+    {
+      "label": "Berri Barmera",
+      "venues": 7,
+      "machines": 171,
+      "ngr": 6557995.4,
+      "ngrPerVenue": 936856.49
+    },
+    {
+      "label": "Campbelltown, Tea Tree Gully",
+      "venues": 14,
+      "machines": 462,
+      "ngr": 46617275.99,
+      "ngrPerVenue": 3329805.43
+    },
+    {
+      "label": "Ceduna, Streaky Bay, Le Hunte, Elliston, Lower Eyre Peninsula",
+      "venues": 10,
+      "machines": 143,
+      "ngr": 4405967.8,
+      "ngrPerVenue": 440596.78
+    },
+    {
+      "label": "Charles Sturt",
+      "venues": 26,
+      "machines": 816,
+      "ngr": 62639827.51,
+      "ngrPerVenue": 2409224.14
+    },
+    {
+      "label": "Clare & Gilbert Valleys",
+      "venues": 7,
+      "machines": 88,
+      "ngr": 2246831.99,
+      "ngrPerVenue": 320976.0
+    },
+    {
+      "label": "Coorong, Tatiara",
+      "venues": 9,
+      "machines": 133,
+      "ngr": 3210437.05,
+      "ngrPerVenue": 356715.23
+    },
+    {
+      "label": "Gawler",
+      "venues": 8,
+      "machines": 212,
+      "ngr": 13564347.69,
+      "ngrPerVenue": 1695543.46
+    },
+    {
+      "label": "Goyder, Northern Areas",
+      "venues": 7,
+      "machines": 54,
+      "ngr": 865708.42,
+      "ngrPerVenue": 123672.63
+    },
+    {
+      "label": "Holdfast Bay",
+      "venues": 11,
+      "machines": 377,
+      "ngr": 22691455.24,
+      "ngrPerVenue": 2062859.57
+    },
+    {
+      "label": "Kangaroo Island, Yankalilla, Victor Harbor",
+      "venues": 11,
+      "machines": 210,
+      "ngr": 10051946.02,
+      "ngrPerVenue": 913813.27
+    },
+    {
+      "label": "Kimba, Cleve, Tumby Bay, Franklin Harbour",
+      "venues": 7,
+      "machines": 77,
+      "ngr": 1554452.27,
+      "ngrPerVenue": 222064.61
+    },
+    {
+      "label": "Light, Mallala",
+      "venues": 12,
+      "machines": 109,
+      "ngr": 3922140.23,
+      "ngrPerVenue": 326845.02
+    },
+    {
+      "label": "Loxton Waikerie",
+      "venues": 4,
+      "machines": 121,
+      "ngr": 3781719.51,
+      "ngrPerVenue": 945429.88
+    },
+    {
+      "label": "Marion",
+      "venues": 11,
+      "machines": 330,
+      "ngr": 29506414.08,
+      "ngrPerVenue": 2682401.28
+    },
+    {
+      "label": "Mid Murray",
+      "venues": 9,
+      "machines": 120,
+      "ngr": 2601683.32,
+      "ngrPerVenue": 289075.92
+    },
+    {
+      "label": "Mitcham, Burnside",
+      "venues": 7,
+      "machines": 219,
+      "ngr": 15556532.26,
+      "ngrPerVenue": 2222361.75
+    },
+    {
+      "label": "Mount Barker",
+      "venues": 12,
+      "machines": 253,
+      "ngr": 10642995.48,
+      "ngrPerVenue": 886916.29
+    },
+    {
+      "label": "Mount Gambier, Grant",
+      "venues": 14,
+      "machines": 359,
+      "ngr": 17349526.62,
+      "ngrPerVenue": 1239251.9
+    },
+    {
+      "label": "Mount Remarkable, Orroroo/Carrieton, Peterborough",
+      "venues": 7,
+      "machines": 73,
+      "ngr": 1269463.83,
+      "ngrPerVenue": 181351.98
+    },
+    {
+      "label": "Murray Bridge, Karoonda/East Murray, Southern Mallee",
+      "venues": 10,
+      "machines": 160,
+      "ngr": 9885796.85,
+      "ngrPerVenue": 988579.69
+    },
+    {
+      "label": "Naracoorte & Lucindale, Robe, Kingston",
+      "venues": 8,
+      "machines": 168,
+      "ngr": 4884563.03,
+      "ngrPerVenue": 610570.38
+    },
+    {
+      "label": "Norwood Payneham & St Peters",
+      "venues": 17,
+      "machines": 562,
+      "ngr": 32214698.25,
+      "ngrPerVenue": 1894982.25
+    },
+    {
+      "label": "Onkaparinga",
+      "venues": 24,
+      "machines": 741,
+      "ngr": 62749824.03,
+      "ngrPerVenue": 2614576.0
+    },
+    {
+      "label": "Playford",
+      "venues": 10,
+      "machines": 316,
+      "ngr": 31669396.84,
+      "ngrPerVenue": 3166939.68
+    },
+    {
+      "label": "Port Adelaide Enfield",
+      "venues": 43,
+      "machines": 1193,
+      "ngr": 75552056.23,
+      "ngrPerVenue": 1757024.56
+    },
+    {
+      "label": "Port Augusta",
+      "venues": 12,
+      "machines": 272,
+      "ngr": 12003877.83,
+      "ngrPerVenue": 1000323.15
+    },
+    {
+      "label": "Port Lincoln",
+      "venues": 7,
+      "machines": 212,
+      "ngr": 9715731.0,
+      "ngrPerVenue": 1387961.57
+    },
+    {
+      "label": "Port Pirie",
+      "venues": 9,
+      "machines": 219,
+      "ngr": 9348234.1,
+      "ngrPerVenue": 1038692.68
+    },
+    {
+      "label": "Prospect, Walkerville",
+      "venues": 6,
+      "machines": 199,
+      "ngr": 14928282.03,
+      "ngrPerVenue": 2488047.01
+    },
+    {
+      "label": "Renmark Paringa",
+      "venues": 5,
+      "machines": 124,
+      "ngr": 5306430.41,
+      "ngrPerVenue": 1061286.08
+    },
+    {
+      "label": "Roxby Downs, Coober Pedy, Flinders Ranges",
+      "venues": 7,
+      "machines": 133,
+      "ngr": 4112903.47,
+      "ngrPerVenue": 587557.64
+    },
+    {
+      "label": "Salisbury",
+      "venues": 21,
+      "machines": 687,
+      "ngr": 67260242.21,
+      "ngrPerVenue": 3202868.68
+    },
+    {
+      "label": "Unincorp. Far North, Unincorp. West Coast",
+      "venues": 6,
+      "machines": 60,
+      "ngr": 627375.77,
+      "ngrPerVenue": 104562.63
+    },
+    {
+      "label": "Unley",
+      "venues": 8,
+      "machines": 258,
+      "ngr": 13950563.25,
+      "ngrPerVenue": 1743820.41
+    },
+    {
+      "label": "Wakefield Region",
+      "venues": 9,
+      "machines": 60,
+      "ngr": 1352225.61,
+      "ngrPerVenue": 150247.29
+    },
+    {
+      "label": "Wattle Range",
+      "venues": 6,
+      "machines": 108,
+      "ngr": 3068047.62,
+      "ngrPerVenue": 511341.27
+    },
+    {
+      "label": "West Torrens",
+      "venues": 11,
+      "machines": 340,
+      "ngr": 32759882.28,
+      "ngrPerVenue": 2978171.12
+    },
+    {
+      "label": "Whyalla",
+      "venues": 8,
+      "machines": 222,
+      "ngr": 16561822.44,
+      "ngrPerVenue": 2070227.81
+    },
+    {
+      "label": "Yorke Peninsula",
+      "venues": 17,
+      "machines": 205,
+      "ngr": 5158407.33,
+      "ngrPerVenue": 303435.73
+    }
+  ]
+}
