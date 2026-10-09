@@ -18,9 +18,10 @@ export default function AiLogPage() {
     <div className="mx-auto max-w-6xl px-4 sm:px-6">
       <PageHeader kicker="AI log" title="Every AI call from this browser">
         <p>
-          Each call a model makes on this site is recorded here: what was sent (your question and
-          the prompt variant, never your key), what came back, which model answered, how long it
-          took, the tokens billed, and what you did with the answer. The log lives in this browser’s
+          Each call a model makes on this site is recorded here: what was sent (your question, the
+          prompt variant, a SHA-256 hash of the instructions and schema the model was given, and the
+          site build; never your key), what came back, which model answered, how long it took, the
+          tokens billed, and what you did with the answer. The log lives in this browser’s
           IndexedDB; this site has no server-side copy.
         </p>
       </PageHeader>

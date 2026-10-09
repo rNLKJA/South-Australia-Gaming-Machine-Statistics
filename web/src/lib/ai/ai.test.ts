@@ -3,6 +3,7 @@ import "fake-indexeddb/auto"
 import { IDBFactory } from "fake-indexeddb"
 import { describe, expect, it } from "vitest"
 
+import { wilsonInterval } from "../stats/intervals"
 import { anthropicStructured } from "./anthropic"
 import { auditToCsv, auditToJson } from "./audit-export"
 import { indexedDbAuditStore, redactSecrets, withDecision } from "./audit-log"
@@ -16,6 +17,7 @@ import {
   estimateCostUsd,
 } from "./models"
 import { OPENAI_URL, openaiStructured } from "./openai"
+import { promptSha256 } from "./prompt-fingerprint"
 import { createAiStore, KEY_PREFIX, memoryStorage, SETTINGS_KEY } from "./settings"
 import { buildSqlRequest, SqlAnswerSchema, SQL_FEATURE } from "./sql-assistant"
 import {
@@ -86,7 +88,12 @@ describe("Anthropic adapter (fetch mocked)", () => {
       maxRetries: 0,
     })
     expect(r.text).toBe('{"ok":true}')
-    expect(r.usage).toEqual({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
+    expect(r.usage).toEqual({
+      inputTokens: 500,
+      outputTokens: 20,
+      cachedInputTokens: 400,
+      cacheWriteInputTokens: 0,
+    })
     const c = calls[0]
     expect(c.url).toMatch(/\/v1\/messages/)
     expect(c.headers.get("anthropic-dangerous-direct-browser-access")).toBe("true")
@@ -96,7 +103,11 @@ describe("Anthropic adapter (fetch mocked)", () => {
     expect(c.body.output_config).toEqual({
       format: { type: "json_schema", schema: REQ.jsonSchema },
     })
-    expect(c.body.system).toBe("system prompt")
+    // the breakpoint sits on the shared system prompt, not after the question
+    expect(c.body.system).toEqual([
+      { type: "text", text: "system prompt", cache_control: { type: "ephemeral" } },
+    ])
+    expect(c.body.cache_control).toBeUndefined()
   })
 
   it("opts Claude Sonnet 5.5 into server-side fallbacks at low effort", async () => {
@@ -121,7 +132,11 @@ describe("Anthropic adapter (fetch mocked)", () => {
     const refused = (await run(200, message("", { stop_reason: "refusal" }))) as AiError
     expect(refused.kind).toBe("refusal")
     // an unusable answer is still billed: the tokens travel with the error
-    expect(refused.usage).toEqual({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
+    expect(refused.usage).toMatchObject({
+      inputTokens: 500,
+      outputTokens: 20,
+      cachedInputTokens: 400,
+    })
     expect(refused.model).toBe("claude-haiku-4-5")
     const cut = (await run(200, message("{", { stop_reason: "max_tokens" }))) as AiError
     expect(cut.kind).toBe("truncated")
@@ -239,6 +254,12 @@ describe("errors and models", () => {
     )
     expect(estimateCostUsd("claude-haiku-4-5", 1_000_000, 0)).toBe(1)
     expect(estimateCostUsd("claude-haiku-4-5", 1_000_000, 0, 1_000_000)).toBeCloseTo(0.1, 10)
+    // cache writes cost 1.25 times the input price
+    expect(estimateCostUsd("claude-sonnet-5-5", 1_000_000, 0, 0, 1_000_000)).toBeCloseTo(2.5, 10)
+    expect(estimateCostUsd("claude-sonnet-5-5", 3_000_000, 0, 1_000_000, 1_000_000)).toBeCloseTo(
+      2 + 0.2 + 2.5,
+      10
+    )
     expect(estimateCostUsd("gpt-x", 1, 1)).toBeNull()
   })
 })
@@ -261,6 +282,20 @@ describe("settings and key storage", () => {
     expect(changes).toBe(3)
     store.setKey("openai", "", false)
     expect(store.getKey("openai")).toBeNull()
+  })
+
+  it("reports where each provider's key is kept, whatever the global setting says", () => {
+    const store = createAiStore(memoryStorage(), memoryStorage())
+    // Anthropic key remembered on this device, then an OpenAI key for this tab only
+    store.saveSettings({ ...DEFAULT_SETTINGS, provider: "anthropic", remember: true })
+    store.setKey("anthropic", KEY, true)
+    store.saveSettings({ ...DEFAULT_SETTINGS, provider: "openai", remember: false })
+    store.setKey("openai", "sk-test-openai-key", false)
+    expect(store.getSettings().remember).toBe(false)
+    expect(store.keyRemembered("anthropic")).toBe(true)
+    expect(store.keyRemembered("openai")).toBe(false)
+    store.forgetKey("openai")
+    expect(store.keyRemembered("openai")).toBeNull()
   })
 
   it("stores settings without the key and survives bad JSON", () => {
@@ -412,7 +447,7 @@ describe("structured calls with validation and auditing", () => {
     expect(entries).toHaveLength(2)
     for (const e of entries) {
       expect(e.human_decision).toBe("no_output")
-      expect(e.usage).toEqual({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
+      expect(e.usage).toMatchObject({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
       expect(e.model).toBe("claude-haiku-4-5")
     }
     expect(entries.map((e) => e.error?.split(":")[0]).sort()).toEqual(["refusal", "truncated"])
@@ -452,9 +487,17 @@ describe("the SQL prompt", () => {
     expect(system).toContain("cannot answer the question")
     const abstain = GOLD_QUESTIONS.filter((q) => q.category === "abstain")
     expect(abstain.length).toBeGreaterThanOrEqual(8)
-    // only the forecast question relies on something the prompt states (the years covered)
-    expect(abstain.filter((q) => q.scopeInPrompt).map((q) => q.id)).toEqual(["a03"])
-    expect(abstain.filter(unpromptedAbstain)).toHaveLength(abstain.length - 1)
+    // the prompt's opening sentence states the scope: South Australian gaming-machine statistics
+    // for FY 2009-10 to FY 2024-25. The three questions that lean on it are flagged.
+    expect(system).toMatch(/^[^\n]*south australian gaming-machine statistics[^\n]*fy 2024-25/)
+    expect(abstain.filter((q) => q.scopeInPrompt).map((q) => q.id)).toEqual(["a03", "a06", "a07"])
+    expect(abstain.filter(unpromptedAbstain).map((q) => q.id)).toEqual([
+      "a01",
+      "a02",
+      "a04",
+      "a05",
+      "a08",
+    ])
   })
 })
 
@@ -514,7 +557,7 @@ describe("evaluation scoring", () => {
     expect(s.outcomes.pass).toBe(3)
     expect(s.medianLatencyMs).toBe(100)
     expect(s.answeredBy).toEqual(["claude-haiku-4-5"])
-    expect(s.lenient.method).toBe("wilson")
+    expect(s.lenient).toMatchObject(wilsonInterval(3, 4))
     expect(s.repeats).toBe(1)
     expect(s.spread).toBeNull()
     expect(s.abstentionUnprompted).toMatchObject({ n: 1, passes: 1 })
@@ -532,15 +575,35 @@ describe("evaluation scoring", () => {
     expect(s.n).toBe(4)
     expect(s.attempts).toBe(12)
     expect(s.repeats).toBe(3)
-    expect(s.lenient.method).toBe("bootstrap")
-    // pass rates 1, 2/3, 0, 1/3: mean 0.5
+    // pass rates 1, 2/3, 0, 1/3: mean 0.5, with Wilson on 2 of 4 questions (questions are the unit)
     expect(s.lenient.estimate).toBeCloseTo(0.5, 12)
     expect(s.lenient.passes).toBeCloseTo(2, 12)
-    expect(s.lenient.lower).toBeLessThan(0.5)
-    expect(s.lenient.upper).toBeGreaterThan(0.5)
+    expect(s.lenient.lower).toBeCloseTo(wilsonInterval(2, 4).lower, 12)
+    expect(s.lenient.upper).toBeCloseTo(wilsonInterval(2, 4).upper, 12)
     expect(s.spread).toMatchObject({ perRepeat: [0.5, 0.25, 0.75], min: 0.25, max: 0.75, mixed: 2 })
     expect(s.outcomes.pass).toBe(6)
     expect(summariseRun(items)).toEqual(s)
+  })
+
+  it("never narrows the interval by repeating the same questions", () => {
+    // every look-up question always passes and every decline question always fails
+    const once = [
+      ...["q1", "q2", "q3", "q4", "q5"].map((id) => item(id, true)),
+      ...["a1", "a2", "a3"].map((id) => item(id, false, "abstain")),
+    ]
+    const thrice = [0, 1, 2].flatMap((r) => once.map((i) => ({ ...i, repeat: r })))
+    const s1 = summariseRun(once)
+    const s3 = summariseRun(thrice)
+    for (const key of ["lenient", "answerable", "abstention"] as const) {
+      expect(s3[key].lower).toBeCloseTo(s1[key].lower, 12)
+      expect(s3[key].upper).toBeCloseTo(s1[key].upper, 12)
+    }
+    for (const c of s3.byCategory.filter((c) => c.n > 0)) {
+      // an all-pass or all-fail category keeps a Wilson interval of real width
+      expect(c.ci.upper - c.ci.lower).toBeGreaterThan(0.2)
+    }
+    const lookup = s3.byCategory.find((c) => c.category === "lookup")!
+    expect(lookup.ci).toMatchObject(wilsonInterval(5, 5))
   })
 
   it("compares two runs question by question", () => {
@@ -571,5 +634,23 @@ describe("evaluation scoring", () => {
     })
     expect(rows).toHaveLength(5)
     expect(rows[0]).toMatchObject({ question_id: "q1", pass_lenient: true, repeat: 1 })
+  })
+})
+
+describe("prompt fingerprint", () => {
+  it("hashes the system prompt and output schema with SHA-256 (matches Python's hashlib)", async () => {
+    expect(await promptSha256({ system: "abc", jsonSchema: { type: "object" } })).toBe(
+      "438b4604ca9aa56dd5894d8abb94e6e36e90f98fec4da75b4dca9d53b5babec7"
+    )
+    expect(await promptSha256({ system: "Grüße", jsonSchema: {} })).toBe(
+      "4aff63e368f6dc2a2127acd74485dc42addbbf2eb7bcfcd465efad6450d78df2"
+    )
+    // the question is not part of the fingerprint: every question in a run shares one hash
+    const a = buildSqlRequest("first question", [], "described")
+    const b = buildSqlRequest("second question", [], "described")
+    expect(await promptSha256(a)).toBe(await promptSha256(b))
+    expect(await promptSha256(a)).not.toBe(
+      await promptSha256(buildSqlRequest("first question", [], "bare"))
+    )
   })
 })

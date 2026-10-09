@@ -60,7 +60,7 @@ Added in the 2026 upgrade:
 | `/ask/evaluation`                           | The text-to-SQL evaluation harness: 28 questions, optional repeats, accuracy with intervals, paired comparisons    |
 | `/ai-log`                                   | The AI audit log for this browser, with JSON and CSV export                                                        |
 | `/methods`                                  | Methods, the AI use statement and links to the decision records                                                    |
-| `/methods/decisions/[record]`               | Decision records DR-001 to DR-005                                                                                  |
+| `/methods/decisions/[record]`               | Decision records DR-001 to DR-006                                                                                  |
 | `/methods/data-card`, `/methods/model-card` | The data card and the model card                                                                                   |
 
 ## Tech stack
@@ -83,7 +83,7 @@ Added in the 2026 upgrade:
 ├── LICENSE
 ├── .github/workflows/ci.yml      lint, format, typecheck, test and build on every push
 ├── docs/                         methods, data card, model card, AI use statement
-│   └── decisions/                decision records DR-001 to DR-005
+│   └── decisions/                decision records DR-001 to DR-006
 ├── original/                     the 2025 archive, unchanged (see original/README.md)
 │   ├── SA Gaming Data/           CBS PDFs in four report families
 │   ├── SA Gaming Statistics.xlsx the consolidated workbook
@@ -143,8 +143,8 @@ The site works fully without AI. On [Ask the data](https://sa-gaming-machine-sta
 
 - **Your key, your browser.** Open **AI settings**, choose Anthropic (default model Claude Haiku 4.5, with Claude Sonnet 5.5 as an option) or OpenAI (any model id, default `gpt-5-mini`), and paste a key. It is kept in `sessionStorage` (gone when the tab closes) unless you tick "Remember on this device" (`localStorage`); **Forget key** removes it. Requests go straight from the browser to the provider. The key never reaches this site's server, is never logged and is never committed; the content security policy only allows connections to this site, the map tiles and the two providers' APIs.
 - **You decide what runs.** The drafted SQL is shown and editable. Every query passes an allow-list (one SELECT or WITH statement over the eight tables, listed functions only, no recursion), runs on a database that refuses writes, and is stopped after five seconds. Model text is labelled **AI-generated** and results from a model's query **AI-assisted**.
-- **Audit log.** Every AI call is appended to an IndexedDB log in your browser: id, time, feature, provider, model, input (without the key), output, latency, token usage and your decision (accepted, edited or rejected). View and export it as JSON or CSV at [/ai-log](https://sa-gaming-machine-stats.vercel.app/ai-log).
-- **Evaluation.** [/ask/evaluation](https://sa-gaming-machine-stats.vercel.app/ask/evaluation) runs 28 fixed questions (8 of which should be declined; the prompt names no examples of them) through the same guard and database and scores execution accuracy against reference queries that the unit tests check against the site's own figures. It can repeat the set three times to show run-to-run variation, reports intervals by category (Wilson for a single run, a bootstrap over questions with repeats), compares two runs question by question, and exports the results. No accuracy figure is published here: there is no budget to run it, so it runs only with a visitor's key.
+- **Audit log.** Every AI call is appended to an IndexedDB log in your browser: id, time, feature, provider, model, input (without the key, with a SHA-256 hash of the prompt and the site build), output, latency, token usage and your decision (accepted, edited or rejected). View and export it as JSON or CSV at [/ai-log](https://sa-gaming-machine-stats.vercel.app/ai-log).
+- **Evaluation.** [/ask/evaluation](https://sa-gaming-machine-stats.vercel.app/ask/evaluation) runs 28 fixed questions (8 of which should be declined; the prompt names no examples of them) through the same guard and database and scores execution accuracy against reference queries that the unit tests check against the site's own figures. It can repeat the set three times to show run-to-run variation, reports Wilson intervals by category over the questions (repeats don't narrow them), gives the decline rate separately for the five should-decline questions whose scope the prompt doesn't state, compares two runs question by question, and exports the results. No accuracy figure is published here: there is no budget to run it, so it runs only with a visitor's key.
 
 What the AI does and never does is set out in the AI use statement on [Methods](https://sa-gaming-machine-stats.vercel.app/methods#ai-use-statement), which is informed by the Australian Government's policy for the responsible use of AI in government, the EU AI Act's transparency principles and the NIST AI Risk Management Framework (it does not claim compliance with any of them).
 
@@ -153,7 +153,7 @@ What the AI does and never does is set out in the AI use statement on [Methods](
 `docs/` holds the written methods and is rendered on the site under `/methods`:
 
 - `docs/methods.md`: provenance, methods, evaluation design, uncertainty conventions, assumptions, limitations and what I'd change.
-- `docs/decisions/`: DR-001 combined council groups, DR-002 stock versus flow aggregation (the Power BI sum issue), DR-003 the FY 2014/15 gap, DR-004 browser text-to-SQL, DR-005 the analysis design. Past records are superseded, never edited.
+- `docs/decisions/`: DR-001 combined council groups, DR-002 stock versus flow aggregation (the Power BI sum issue), DR-003 the FY 2014/15 gap, DR-004 browser text-to-SQL, DR-005 the analysis design, DR-006 the evaluation intervals (supersedes part of DR-004). Past records are superseded, never edited.
 - `docs/data-card.md` and `docs/model-card.md`: the tidy tables, and the three statistical models plus the text-to-SQL feature.
 - `docs/ai-use-statement.md`: the AI use statement.
 

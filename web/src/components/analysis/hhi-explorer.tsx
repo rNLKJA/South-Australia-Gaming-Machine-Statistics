@@ -111,7 +111,8 @@ export function HhiExplorer({
         <p className="mb-4 max-w-[70ch] text-sm text-muted-foreground">
           Percentile bootstrap over the year’s months ({B.toLocaleString("en-AU")} resamples, seed{" "}
           {seed}). FY 2023/24 has nine months: the manufacturer reports for October to December 2023
-          are missing.
+          are missing. Most intervals are only a few index points wide, narrower than the dots; the
+          exact values are in the table below.
         </p>
         <IntervalChart
           data={v.annual.map((a) => ({

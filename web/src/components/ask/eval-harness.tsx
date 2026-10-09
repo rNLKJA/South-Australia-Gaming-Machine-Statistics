@@ -21,6 +21,7 @@ import { auditStore } from "@/lib/ai/audit-log"
 import { runAudited } from "@/lib/ai/client"
 import { AiError } from "@/lib/ai/errors"
 import { activeModel, estimateCostUsd, PROVIDER_LABEL } from "@/lib/ai/models"
+import { APP_VERSION, promptSha256 } from "@/lib/ai/prompt-fingerprint"
 import { buildSqlRequest, SQL_EVAL_FEATURE, SqlAnswerSchema } from "@/lib/ai/sql-assistant"
 import {
   CATEGORY_LABEL,
@@ -68,7 +69,13 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
-function newRun(provider: string, model: string, variant: PromptVariant, repeats: number): EvalRun {
+function newRun(
+  provider: string,
+  model: string,
+  variant: PromptVariant,
+  repeats: number,
+  promptHash: string | null
+): EvalRun {
   return {
     id: `run-${Date.now().toString(36)}`,
     startedAt: nowIso(),
@@ -79,6 +86,8 @@ function newRun(provider: string, model: string, variant: PromptVariant, repeats
     items: [],
     seed: DEFAULT_SEED,
     repeats,
+    promptSha256: promptHash,
+    appVersion: APP_VERSION,
   }
 }
 
@@ -128,7 +137,9 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
     setError(null)
     stop.current = false
     const key = keyFor(settings.provider)
-    const base = newRun(settings.provider, model, variant, k)
+    // the system prompt and schema are the same for every question, so one hash covers the run
+    const promptHash = await promptSha256(buildSqlRequest("", schema, variant))
+    const base = newRun(settings.provider, model, variant, k, promptHash)
     let items: EvalItemResult[] = []
     setCurrent(base)
     const plan = Array.from({ length: k }, (_, repeat) =>
@@ -144,7 +155,15 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
         const { result, entry } = await runAudited(
           auditStore(),
           SQL_EVAL_FEATURE,
-          { question_id: q.id, question: q.question, prompt_variant: variant, repeat: repeat + 1 },
+          {
+            question_id: q.id,
+            question: q.question,
+            prompt_variant: variant,
+            repeat: repeat + 1,
+            eval_run_id: base.id,
+            prompt_sha256: promptHash,
+            app_version: APP_VERSION,
+          },
           settings,
           key,
           buildSqlRequest(q.question, schema, variant),
@@ -166,6 +185,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
           inputTokens: result.usage?.inputTokens ?? null,
           outputTokens: result.usage?.outputTokens ?? null,
           cachedInputTokens: result.usage?.cachedInputTokens ?? null,
+          cacheWriteTokens: result.usage?.cacheWriteInputTokens ?? null,
           auditId: entry.id,
           answeredBy: result.model,
           repeat,
@@ -191,6 +211,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
           inputTokens: err.usage?.inputTokens ?? null,
           outputTokens: err.usage?.outputTokens ?? null,
           cachedInputTokens: err.usage?.cachedInputTokens ?? null,
+          cacheWriteTokens: err.usage?.cacheWriteInputTokens ?? null,
           auditId: null,
           answeredBy: err.model,
           repeat,
@@ -216,6 +237,16 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
 
   const shown = current ?? runs[0] ?? null
   const summary = useMemo(() => (shown ? summariseRun(shown.items) : null), [shown])
+  const cost =
+    shown && summary
+      ? estimateCostUsd(
+          shown.model,
+          summary.inputTokens,
+          summary.outputTokens,
+          summary.cachedInputTokens,
+          summary.cacheWriteTokens
+        )
+      : null
   const comparison = useMemo(() => {
     if (!pair) return null
     const a = runs.find((r) => r.id === pair[0])
@@ -312,7 +343,11 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
           <p className="mt-3 text-sm text-ink-soft">
             This sends {requests} requests with your key.{" "}
             {estimate != null
-              ? `At list prices that is roughly US$${estimate.toFixed(2)} (an estimate from about ${EST_INPUT.toLocaleString("en-AU")} input and ${EST_OUTPUT} output tokens per question; prompt caching usually makes it less).`
+              ? `At list prices that is roughly US$${estimate.toFixed(2)} (an estimate from about ${EST_INPUT.toLocaleString("en-AU")} input and ${EST_OUTPUT} output tokens per question, without caching). ${
+                  model === "claude-haiku-4-5"
+                    ? "The prompt is shorter than Claude Haiku 4.5’s minimum for prompt caching, so it isn’t cached."
+                    : "The shared schema prompt is cached between questions, which usually makes it a little less."
+                }`
               : "The cost depends on the model you chose."}
           </p>
         ) : null}
@@ -345,7 +380,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
             </h2>
             <AiLabel
               kind="assisted"
-              detail={`${PROVIDER_LABEL[shown.provider as "anthropic" | "openai"] ?? shown.provider}, ${shown.model}, ${shown.variant} prompt`}
+              detail={`${PROVIDER_LABEL[shown.provider as "anthropic" | "openai"] ?? shown.provider}, ${shown.model}, ${shown.variant} prompt${shown.promptSha256 ? ` (sha256 ${shown.promptSha256.slice(0, 8)})` : ""}`}
             />
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
@@ -354,7 +389,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               value={ci(summary.lenient)}
               detail={
                 summary.repeats > 1
-                  ? `mean pass rate over ${summary.n} questions × ${summary.repeats} repeats; bootstrap 95% CI over questions`
+                  ? `mean pass rate over ${summary.n} questions × ${summary.repeats} repeats; Wilson 95% CI over the ${summary.n} questions (repeats don’t narrow it)`
                   : `${summary.lenient.passes} of ${summary.n} questions; Wilson 95% CI`
               }
             />
@@ -372,14 +407,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               label="Tokens"
               value={`${summary.inputTokens.toLocaleString("en-AU")} in · ${summary.outputTokens.toLocaleString("en-AU")} out`}
               detail={`median latency ${summary.medianLatencyMs != null ? Math.round(summary.medianLatencyMs) : "–"} ms${
-                estimateCostUsd(
-                  shown.model,
-                  summary.inputTokens,
-                  summary.outputTokens,
-                  summary.cachedInputTokens
-                ) != null
-                  ? `; about US$${estimateCostUsd(shown.model, summary.inputTokens, summary.outputTokens, summary.cachedInputTokens)!.toFixed(3)}`
-                  : ""
+                cost != null ? `; about US$${cost.toFixed(3)}` : ""
               }`}
             />
           </dl>
@@ -571,7 +599,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                   <label key={label} className="flex flex-col gap-1.5 text-sm">
                     <span className="kicker text-muted-foreground">Run {label}</span>
                     <select
-                      className="h-8 rounded-lg border border-input bg-card px-2 text-sm"
+                      className="h-8 rounded-lg border border-input bg-card px-2 text-base md:text-sm"
                       value={pair?.[k] ?? ""}
                       onChange={(e) => {
                         const next: [string, string] = pair ?? [runs[0].id, runs[1].id]
@@ -616,7 +644,11 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                   {comparison.c.mcnemarP != null
                     ? `; McNemar exact p = ${comparison.c.mcnemarP.toFixed(3)}`
                     : ""}
-                  . With {comparison.c.n} questions only large differences can be told apart from
+                  .{" "}
+                  {comparison.c.difference.lower === comparison.c.difference.upper
+                    ? "Every question gave the same difference, so every resample does too and the bootstrap interval has no width; that says the runs agreed, not that a difference is ruled out. "
+                    : ""}
+                  With {comparison.c.n} questions only large differences can be told apart from
                   chance.
                 </p>
               ) : (

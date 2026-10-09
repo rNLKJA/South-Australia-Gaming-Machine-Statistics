@@ -68,18 +68,23 @@ export const PRICE_PER_MTOK: Record<string, { input: number; output: number }> =
   "claude-sonnet-5-5": { input: 2, output: 10 },
 }
 
-/** Cache reads are billed at a tenth of the input price; cache writes are ignored (approximate). */
+/**
+ * Approximate cost at list prices. inputTokens counts every input token; of those, cache reads are
+ * billed at a tenth of the input price and cache writes (5-minute) at 1.25 times it.
+ */
 export function estimateCostUsd(
   model: string,
   inputTokens: number,
   outputTokens: number,
-  cachedInputTokens = 0
+  cachedInputTokens = 0,
+  cacheWriteInputTokens = 0
 ): number | null {
   const p = PRICE_PER_MTOK[model]
   if (!p) return null
   return (
-    ((inputTokens - cachedInputTokens) * p.input +
+    ((inputTokens - cachedInputTokens - cacheWriteInputTokens) * p.input +
       cachedInputTokens * p.input * 0.1 +
+      cacheWriteInputTokens * p.input * 1.25 +
       outputTokens * p.output) /
     1e6
   )

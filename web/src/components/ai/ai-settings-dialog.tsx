@@ -35,9 +35,15 @@ export function AiSettingsDialog({ className }: { className?: string }) {
   const help = KEY_HELP[provider]
   const active = keySaved[settings.provider]
 
+  /** The checkbox shows where this provider's saved key actually is (each key is stored apart). */
+  const withStoredRemember = (s: AiSettings): AiSettings => ({
+    ...s,
+    remember: aiStore().keyRemembered(s.provider) ?? s.remember,
+  })
+
   const onOpenChange = (next: boolean) => {
     if (next) {
-      setDraft(aiStore().getSettings())
+      setDraft(withStoredRemember(aiStore().getSettings()))
       setKey("")
       setSaved(null)
     }
@@ -54,7 +60,12 @@ export function AiSettingsDialog({ className }: { className?: string }) {
       if (existing) store.setKey(draft.provider, existing, draft.remember)
     }
     setKey("")
-    setSaved(`Saved. ${PROVIDER_LABEL[draft.provider]} will be used for AI features.`)
+    const name = PROVIDER_LABEL[draft.provider]
+    setSaved(
+      store.getKey(draft.provider)
+        ? `Saved. ${name} will be used for AI features.`
+        : `Saved. Add an ${name} key to turn on the AI features.`
+    )
   }
 
   const forget = (p?: Provider) => {
@@ -91,7 +102,7 @@ export function AiSettingsDialog({ className }: { className?: string }) {
         <Segmented
           label="Provider"
           value={provider}
-          onChange={(p) => setDraft({ ...draft, provider: p })}
+          onChange={(p) => setDraft(withStoredRemember({ ...draft, provider: p }))}
           options={[
             { value: "anthropic", label: "Anthropic" },
             { value: "openai", label: "OpenAI" },

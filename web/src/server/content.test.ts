@@ -4,10 +4,12 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 import { concentrationView, councilsView, trendsView } from "@/lib/analysis/view"
+import { statewide } from "@/lib/data"
 import { docHref, slugify } from "@/lib/doc-links"
-import { fmtDecimal, fmtInterval, fmtMillions, signed } from "@/lib/format"
-import { monthLabel } from "@/lib/fy"
+import { fmtAud, fmtDecimal, fmtInterval, fmtMillions, signed } from "@/lib/format"
+import { fyLabel, monthLabel } from "@/lib/fy"
 import { sqlSchema } from "@/lib/sql/tables"
+import { annualStatewide } from "@/lib/statewide"
 
 import { listDecisions, parseDecision, readDoc } from "./content"
 
@@ -32,7 +34,22 @@ describe("docs rendered on /methods", () => {
 
   it("parses every decision record in Rin's format", () => {
     const all = listDecisions()
-    expect(all.map((d) => d.id)).toEqual(["DR-001", "DR-002", "DR-003", "DR-004", "DR-005"])
+    expect(all.map((d) => d.id)).toEqual([
+      "DR-001",
+      "DR-002",
+      "DR-003",
+      "DR-004",
+      "DR-005",
+      "DR-006",
+    ])
+    // a past record is never edited: DR-006 supersedes part of DR-004 and the link is derived
+    const dr4 = all.find((d) => d.id === "DR-004")!
+    expect(dr4.supersededBy.map((s) => s.id)).toEqual(["DR-006"])
+    expect(dr4.supersededBy[0].part).toMatch(/intervals/)
+    expect(all.find((d) => d.id === "DR-006")!.supersedes?.id).toBe("DR-004")
+    // src/proxy.ts sends every other slug to a 404
+    const known = JSON.parse(readFileSync(path.join(web, "content", "decision-slugs.json"), "utf8"))
+    expect(known).toEqual(all.map((d) => d.slug))
     for (const d of all) {
       expect(d.status).toBe("Accepted")
       expect(d.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
@@ -79,6 +96,7 @@ describe("docs rendered on /methods", () => {
       const level = `${m(its.level.estimate)} a month (95% CI ${m(its.level.lower)} to ${m(its.level.upper)})`
       const dr5 = listDecisions().find((d) => d.id === "DR-005")!.body
       const card = readDoc("model-card")
+      expect(card).toContain(`R² is ${its.r2.toFixed(2)}`)
       expect(dr5).toContain(level)
       expect(card).toContain(level)
       expect(fmtInterval(1, 0, 2, String)).toBe("1 (95% CI 0 to 2)")
@@ -88,6 +106,12 @@ describe("docs rendered on /methods", () => {
       const scaling = `${fmtDecimal(c.scaling.slope.estimate)} (95% CI ${fmtDecimal(c.scaling.slope.lower)} to ${fmtDecimal(c.scaling.slope.upper)})`
       expect(dr5).toContain(scaling)
       expect(card).toContain(`c = ${c.scale.c.toFixed(2)}`)
+      // the council-basis state rate and the Statewide page's rate, both quoted in the model card
+      const fy = c.funnels.at(-1)!.fy
+      const statewideRate = annualStatewide(statewide).find((y) => y.fy === fy)!.ngrPerMachine!
+      expect(card).toContain(
+        `${fmtAud(c.funnels.at(-1)!.stateRate)} against ${fmtAud(statewideRate)} in ${fyLabel(fy)}`
+      )
       const latest = c.funnels.at(-1)!
       expect(dr5).toContain(`${latest.outside95.count} of ${latest.outside95.n} areas`)
       const k = concentrationView()

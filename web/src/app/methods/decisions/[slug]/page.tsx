@@ -36,6 +36,30 @@ export default async function DecisionPage({ params }: PageProps<"/methods/decis
         / Decision records / {d.id}
       </nav>
       <PageHeader kicker={`${d.id} · ${d.status} · ${d.date}`} title={d.title} />
+      {d.supersededBy.map((s) => (
+        <p
+          key={s.id}
+          className="mb-6 max-w-[75ch] rounded-lg border border-ochre/50 bg-ochre-soft/50 px-4 py-3 text-sm leading-relaxed"
+        >
+          <strong>Superseded{s.part ? " in part" : ""} by </strong>
+          <Link href={`/methods/decisions/${s.slug}`} className="link font-semibold">
+            {s.id}
+          </Link>
+          {s.part ? `: ${s.part}.` : "."} This record is kept as it was written.
+        </p>
+      ))}
+      {d.supersedes ? (
+        <p className="mb-6 max-w-[75ch] text-sm text-muted-foreground">
+          Supersedes{" "}
+          <Link
+            href={`/methods/decisions/${all.find((x) => x.id === d.supersedes!.id)?.slug ?? ""}`}
+            className="link"
+          >
+            {d.supersedes.id}
+          </Link>
+          {d.supersedes.part ? ` in part: ${d.supersedes.part}.` : "."}
+        </p>
+      ) : null}
       <div className="mb-10 max-w-[75ch] border-l-[3px] border-terracotta py-1 pl-4">
         <p className="kicker text-terracotta">Decision</p>
         <p className="mt-1 text-lg leading-relaxed">{d.decision}</p>

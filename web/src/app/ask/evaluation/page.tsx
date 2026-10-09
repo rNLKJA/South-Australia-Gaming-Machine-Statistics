@@ -57,14 +57,15 @@ export default function EvaluationPage() {
         </Callout>
         <Callout title="Small samples" tone="caution">
           {GOLD_QUESTIONS.length} questions give wide intervals: one question is about four
-          percentage points. A single run’s accuracy has a Wilson 95% interval, and two runs are
+          percentage points. Accuracy has a Wilson 95% interval over the questions, and two runs are
           compared question by question rather than by their headline rates.
         </Callout>
         <Callout title="Runs vary" tone="caution">
           The same question can get a different answer on another call: some models don’t accept a
           temperature setting and others ignore it. Repeat the set three times to see how much
           accuracy moves; each question then scores its pass rate, and comparisons use those rates,
-          so chance differences between runs aren’t read as a better model or prompt.
+          so chance differences between runs aren’t read as a better model or prompt. Repeats don’t
+          narrow the interval: the questions, not the calls, are the sample.
         </Callout>
       </div>
 
@@ -81,13 +82,13 @@ export default function EvaluationPage() {
           <p>
             The prompt’s rule for declining is generic (“if the tables below cannot answer the
             question”) and names no examples, so the {abstain.length} should-decline questions test
-            whether a model recognises what the tables can’t answer.{" "}
-            {stated.length === 1 ? "One" : stated.length} of them (
-            {stated.map((q) => q.id).join(", ")}) is about something the prompt does state, the
-            years the data cover, so the results also give the decline rate on the other{" "}
-            {abstain.length - stated.length}. An earlier draft of the prompt listed the three
-            original should-decline cases by name; questions a04 to a08 were added when that was
-            removed.
+            whether a model recognises what the tables can’t answer. The prompt’s first sentence
+            does state the scope (South Australian gaming-machine statistics, FY 2009-10 to FY
+            2024-25), and {stated.length} of them ({stated.map((q) => q.id).join(", ")}) lean on it,
+            so declining those is partly following the prompt. The results also give the decline
+            rate on the other {abstain.length - stated.length}, the cleaner test. An earlier draft
+            of the prompt listed the three original should-decline cases by name; questions a04 to
+            a08 were added when that was removed.
           </p>
         </SectionHeading>
         <div className="rounded-lg border bg-card">
@@ -126,7 +127,7 @@ export default function EvaluationPage() {
                     {q.tests}
                     {q.scopeInPrompt ? (
                       <span className="mt-1 block text-xs">
-                        Reported separately: {q.scopeInPrompt}
+                        Left out of the cleaner decline rate: {q.scopeInPrompt}
                       </span>
                     ) : null}
                   </TableCell>

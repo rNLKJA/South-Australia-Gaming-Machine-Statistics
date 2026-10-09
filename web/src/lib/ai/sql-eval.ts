@@ -10,12 +10,14 @@ import { DEFAULT_SEED } from "../stats/rng"
  * sql.test.ts. A model's query passes when its result matches the reference result (execution
  * accuracy), so the score measures answers rather than SQL style. Eight questions can't be
  * answered from the tables; for those, a pass means the model said so instead of guessing. The
- * prompt's rule for declining is generic (it names no examples), and the one question whose scope
- * the prompt does state (the years covered) is flagged and reported separately.
+ * prompt's rule for declining is generic (it names no examples). Its opening sentence does state
+ * the scope (South Australian gaming-machine statistics, FY 2009-10 to FY 2024-25), so the three
+ * questions that lean on that sentence (another state, online betting, a forecast) are flagged and
+ * the other five are reported separately as the cleaner test.
  *
  * Model output varies between calls (temperature can't be fixed on every model), so a run can
- * repeat the question set; each question then scores its pass rate across repeats, and intervals
- * come from a bootstrap over questions.
+ * repeat the question set; each question then scores its pass rate across repeats. Questions stay
+ * the unit for the intervals however many repeats there are (see `accuracy`).
  */
 
 export type Category = "lookup" | "aggregate" | "domain-rule" | "abstain"
@@ -262,6 +264,7 @@ export const GOLD_QUESTIONS: readonly GoldQuestion[] = [
     question: "What was net gambling revenue from gaming machines in Victoria in FY 2024-25?",
     sql: "",
     tests: "Only South Australia is covered: the model should decline.",
+    scopeInPrompt: "The prompt says the data are South Australian.",
   },
   {
     id: "a07",
@@ -270,6 +273,7 @@ export const GOLD_QUESTIONS: readonly GoldQuestion[] = [
     question: "How much did South Australians lose on online sports betting in FY 2024-25?",
     sql: "",
     tests: "Only gaming machines are covered: the model should decline.",
+    scopeInPrompt: "The prompt says the data are gaming-machine statistics.",
   },
   {
     id: "a08",
@@ -415,6 +419,8 @@ export interface EvalItemResult {
   inputTokens: number | null
   outputTokens: number | null
   cachedInputTokens: number | null
+  /** Input tokens written to the prompt cache (absent in older runs). */
+  cacheWriteTokens?: number | null
   auditId: string | null
   /** The model the provider reports it used (a refusal fallback can differ from the run's model). */
   answeredBy: string | null
@@ -433,14 +439,22 @@ export interface EvalRun {
   seed: number
   /** How many times the question set was asked (1 when absent). */
   repeats?: number
+  /** SHA-256 of the system prompt and output schema every question in the run was given. */
+  promptSha256?: string | null
+  /** The site build (short commit) that ran it. */
+  appVersion?: string
 }
 
 /**
- * passes is the sum of the questions' pass rates (a whole number with one repeat). With one
- * attempt per question the interval is Wilson's; with repeats it is a percentile bootstrap over
- * questions of the mean pass rate (questions, not attempts, are the independent units).
+ * passes is the sum of the questions' pass rates (a whole number with one repeat), and the interval
+ * is Wilson's on passes out of n questions whatever the number of repeats. Questions, not attempts,
+ * are the independent units: asking the same questions again says nothing new about questions the
+ * set doesn't contain, so it must not narrow the interval. A pass rate lies in [0, 1], so its
+ * variance is at most p(1 − p) and the binomial interval is conservative for the mean pass rate.
+ * (A bootstrap over questions would collapse to zero width when every question in a category
+ * always passes or always fails.)
  */
-export type Accuracy = Interval & { n: number; passes: number; method: "wilson" | "bootstrap" }
+export type Accuracy = Interval & { n: number; passes: number }
 
 export interface RepeatSpread {
   /** Lenient accuracy of each repeat over the questions it answered. */
@@ -473,6 +487,7 @@ export interface RunSummary {
   inputTokens: number
   outputTokens: number
   cachedInputTokens: number
+  cacheWriteTokens: number
   /** Run-to-run variation; null with a single repeat. */
   spread: RepeatSpread | null
 }
@@ -510,25 +525,12 @@ export function questionScores(
 
 function accuracy(scores: readonly QuestionScore[], rate: (s: QuestionScore) => number): Accuracy {
   const n = scores.length
-  const rates = scores.map(rate)
-  const passes = rates.reduce((s, r) => s + r, 0)
-  if (scores.every((s) => s.attempts === 1)) {
-    return { ...wilsonInterval(passes, n), n, passes, method: "wilson" }
-  }
-  const b = bootstrap(
+  // a sum of rates in [0, 1] can't exceed n, but guard against floating-point drift
+  const passes = Math.min(
     n,
-    (w) => {
-      let a = 0
-      let m = 0
-      for (let i = 0; i < n; i++) {
-        a += w[i] * rates[i]
-        m += w[i]
-      }
-      return a / m
-    },
-    { B: 4000, seed: DEFAULT_SEED }
+    scores.reduce((s, q) => s + rate(q), 0)
   )
-  return { estimate: b.estimate, lower: b.lower, upper: b.upper, n, passes, method: "bootstrap" }
+  return { ...wilsonInterval(passes, n), n, passes }
 }
 
 export function summariseRun(items: readonly EvalItemResult[]): RunSummary {
@@ -584,6 +586,7 @@ export function summariseRun(items: readonly EvalItemResult[]): RunSummary {
     inputTokens: items.reduce((s, i) => s + (i.inputTokens ?? 0), 0),
     outputTokens: items.reduce((s, i) => s + (i.outputTokens ?? 0), 0),
     cachedInputTokens: items.reduce((s, i) => s + (i.cachedInputTokens ?? 0), 0),
+    cacheWriteTokens: items.reduce((s, i) => s + (i.cacheWriteTokens ?? 0), 0),
     spread:
       repeatIds.length > 1
         ? {
@@ -669,6 +672,8 @@ export function runToRows(run: EvalRun) {
     model: run.model,
     answered_by: i.answeredBy ?? "",
     prompt_variant: run.variant,
+    prompt_sha256: run.promptSha256 ?? "",
+    app_version: run.appVersion ?? "",
     repeat: (i.repeat ?? 0) + 1,
     question_id: i.id,
     category: i.category,

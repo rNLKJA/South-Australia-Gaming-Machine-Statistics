@@ -25,10 +25,11 @@ This statement covers the one AI feature on this site, Ask the data, and its eva
 
 - Text a model wrote (a draft query, an explanation, assumptions) is labelled **AI-generated**.
 - A result computed by the database from a query a model drafted, or from your edit of one, is labelled **AI-assisted**, with the model's name and whether you ran it as drafted or edited it. Discarding a draft puts back the query you had before it, so a rejected query can't run unlabelled.
+- The label travels with a download. An AI-assisted result is saved as `query-result-ai-assisted.csv`, and the JSON download carries its provenance: the label, the model, the exact SQL and the audit log id.
 
 ## Audit trail
 
-Every call is appended to an audit log in this browser's IndexedDB, viewable and exportable (JSON or CSV) on the AI log page. Each entry records an id, the time, the feature, the provider, the model requested and the model that answered, the input (without the key), the output or the error, the latency, the token usage when the provider reports it, and the human decision: accepted, edited (with the exact version you ran; each different edit you run is recorded) or rejected. Decisions are appended, never overwritten. Evaluation calls are marked as such.
+Every call is appended to an audit log in this browser's IndexedDB, viewable and exportable (JSON or CSV) on the AI log page. Each entry records an id, the time, the feature, the provider, the model requested and the model that answered, the input (without the key), a SHA-256 hash of the system prompt and output schema the model was given, the site build that made the call, the output or the error, the latency, the token usage when the provider reports it, and the human decision: accepted, edited (with the exact version you ran; each different edit you run is recorded) or rejected. Decisions are appended, never overwritten. Evaluation calls are marked as such. The prompt hash means entries made before and after a change to the prompt can be told apart.
 
 ## Human oversight and evaluation
 

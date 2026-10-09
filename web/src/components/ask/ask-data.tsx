@@ -22,6 +22,7 @@ import {
 } from "@/lib/ai/draft-tracking"
 import { AiError } from "@/lib/ai/errors"
 import { activeModel, PROVIDER_LABEL } from "@/lib/ai/models"
+import { APP_VERSION, promptSha256 } from "@/lib/ai/prompt-fingerprint"
 import {
   buildSqlRequest,
   MAX_QUESTION_LENGTH,
@@ -77,7 +78,14 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
   const [aiError, setAiError] = useState<string | null>(null)
   const [sqlError, setSqlError] = useState<string | null>(null)
   const [result, setResult] = useState<
-    (QueryResult & { origin: SqlOrigin; model: string | null }) | null
+    | (QueryResult & {
+        origin: SqlOrigin
+        model: string | null
+        /** The exact SQL that ran and the audit entry of the draft it came from. */
+        sql: string
+        auditId: string | null
+      })
+    | null
   >(null)
   const engine = useRef<SqlEngine | null>(null)
   /** The last decision appended per audit entry, so only exact repeats are skipped. */
@@ -105,13 +113,20 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
     setAiError(null)
     setDrafting(true)
     try {
+      const req = buildSqlRequest(q, schema, "described")
       const { result: r, entry } = await runAudited(
         auditStore(),
         SQL_FEATURE,
-        { question: q, prompt_variant: "described", tables: schema.map((t) => t.name) },
+        {
+          question: q,
+          prompt_variant: "described",
+          tables: schema.map((t) => t.name),
+          prompt_sha256: await promptSha256(req),
+          app_version: APP_VERSION,
+        },
         settings,
         keyFor(settings.provider),
-        buildSqlRequest(q, schema, "described"),
+        req,
         SqlAnswerSchema
       )
       setDraft({
@@ -151,7 +166,13 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
     const origin = sqlOrigin(src, sql)
     try {
       const r = await engine.current.query(sql)
-      setResult({ ...r, origin, model: src?.model ?? null })
+      setResult({
+        ...r,
+        origin,
+        model: src?.model ?? null,
+        sql,
+        auditId: src?.auditId ?? null,
+      })
       if (src) {
         const next = decisionForRun(origin, sql, logged.current.get(src.auditId))
         if (next) await record(src.auditId, next)
@@ -178,6 +199,10 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
     if (draft?.auditId === auditId) setDraft(null)
   }
 
+  /** A result from model-drafted SQL keeps its label when it leaves the page. */
+  const fileStem = (r: NonNullable<typeof result>) =>
+    r.origin === "manual" ? "query-result" : "query-result-ai-assisted"
+
   const exportCsv = () => {
     if (!result) return
     const csv = toCsv(
@@ -187,7 +212,38 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
       })),
       result.rows
     )
-    downloadText("query-result.csv", csv, "text/csv;charset=utf-8")
+    downloadText(`${fileStem(result)}.csv`, csv, "text/csv;charset=utf-8")
+  }
+
+  const exportJson = () => {
+    if (!result) return
+    const provenance =
+      result.origin === "manual"
+        ? { label: "written by the visitor", origin: "manual", sql: result.sql }
+        : {
+            label: "AI-assisted",
+            origin: result.origin === "ai" ? "model draft, run unchanged" : "model draft, edited",
+            model: result.model,
+            audit_id: result.auditId,
+            sql: result.sql,
+            note: "A language model drafted this query with the visitor's own key; see the AI log entry with this audit_id.",
+          }
+    downloadText(
+      `${fileStem(result)}.json`,
+      JSON.stringify(
+        {
+          exported_at: new Date().toISOString(),
+          source: "SA Gaming Machine Statistics, Ask the data",
+          provenance,
+          truncated: result.truncated,
+          columns: result.columns,
+          rows: result.rows,
+        },
+        null,
+        2
+      ),
+      "application/json"
+    )
   }
 
   const model = activeModel(settings)
@@ -342,7 +398,7 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
           }}
           rows={7}
           spellCheck={false}
-          className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-[13px] leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-base leading-relaxed outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-[13px]"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button onClick={run} disabled={running || !sql.trim()}>
@@ -376,10 +432,16 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
                   {result.rows.length === 1 ? "" : "s"} · {result.ms} ms
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={exportCsv}>
-                <Download aria-hidden />
-                CSV
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={exportCsv}>
+                  <Download aria-hidden />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportJson}>
+                  <Download aria-hidden />
+                  JSON + provenance
+                </Button>
+              </div>
             </div>
             {result.truncated ? (
               <p role="status" className="text-sm text-ink-soft">

@@ -21,6 +21,8 @@ export interface TokenUsage {
   outputTokens: number
   /** Input tokens served from the provider's prompt cache, when reported. */
   cachedInputTokens?: number
+  /** Input tokens written to the prompt cache (Anthropic bills these at 1.25× the input price). */
+  cacheWriteInputTokens?: number
 }
 
 /** A validated structured response from either provider. */

@@ -27,7 +27,8 @@ export interface IntervalDatum {
 
 const TICK = { fill: "var(--chart-axis)", fontSize: 12 }
 const Y_AXIS_WIDTH = 64
-const MARGIN_RIGHT = 16
+/** At least half of the widest tick label ("'24–25" is about 38px), which is centred on the edge. */
+const MARGIN_RIGHT = 24
 /** Approximate width of one character of the 11px reference label. */
 const LABEL_CHAR_PX = 6
 
@@ -149,11 +150,12 @@ export function IntervalChart({
             dataKey="estimate"
             stroke="none"
             isAnimationActive={false}
-            dot={{ r: 4, fill: color, stroke: "var(--card)", strokeWidth: 1.5 }}
+            // small dots, so intervals only a few pixels tall still show above and below them
+            dot={{ r: 3, fill: color, stroke: "var(--card)", strokeWidth: 1 }}
             activeDot={{ r: 5, fill: color, stroke: "var(--card)" }}
             connectNulls={false}
           >
-            <ErrorBar dataKey="err" width={5} stroke={color} strokeWidth={1.75} direction="y" />
+            <ErrorBar dataKey="err" width={7} stroke={color} strokeWidth={1.75} direction="y" />
           </Line>
         </ComposedChart>
       </ResponsiveContainer>

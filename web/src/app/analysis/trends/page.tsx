@@ -361,6 +361,58 @@ export default function TrendsPage() {
             }))}
           />
         </ChartFrame>
+        <div className="mt-6 rounded-lg border bg-card">
+          <Table>
+            <caption className="sr-only">
+              Annual NGR per machine by financial year with 95% bootstrap intervals over months, in
+              FY 2024/25 dollars and in nominal dollars
+            </caption>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead scope="col">Financial year</TableHead>
+                <TableHead scope="col" className="text-right">
+                  Months
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  Real, FY 2024/25 $ (95% CI)
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  Nominal $ (95% CI)
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {v.perMachine.map((y) => (
+                <TableRow key={y.fy}>
+                  <TableHead scope="row" className="font-medium">
+                    {fyLabel(y.fy)}
+                  </TableHead>
+                  {y.real && y.nominal ? (
+                    <>
+                      <TableCell className="tabular text-right">{y.months}</TableCell>
+                      <TableCell className="tabular text-right">
+                        {fmtAud(y.real.estimate)} ({fmtAud(y.real.lower)}–{fmtAud(y.real.upper)})
+                      </TableCell>
+                      <TableCell className="tabular text-right">
+                        {fmtAud(y.nominal.estimate)} ({fmtAud(y.nominal.lower)}–
+                        {fmtAud(y.nominal.upper)})
+                      </TableCell>
+                    </>
+                  ) : (
+                    <TableCell colSpan={3} className="whitespace-normal text-muted-foreground">
+                      {y.note ?? "Not available"}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <MethodNote inCard>
+            {v.perMachine.find((y) => y.real)?.real?.B.toLocaleString("en-AU")} percentile-bootstrap
+            resamples of the months in each year, seed {DEFAULT_SEED}. The point estimates are the
+            Statewide page’s figures.
+          </MethodNote>
+        </div>
         <Callout className="mt-6 max-w-4xl" title="Intervals on a census">
           CBS reports every machine and every dollar, so there is no sampling error in the usual
           sense. The intervals on this page describe how stable a figure is given the month-to-month

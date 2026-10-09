@@ -79,6 +79,9 @@ export function FunnelExplorer({ years, c }: { years: FunnelYearView[]; c: numbe
     n: points.filter((p) => p.zoneNow === z).length,
   }))
   const out = year.outside[kind]
+  // the axis is scaled to the points; the limit curves for small areas run higher and are clipped
+  const yMax =
+    Math.ceil((Math.max(year.stateRate, ...year.points.map((p) => p.rate)) * 1.05) / 20000) * 20000
 
   return (
     <div>
@@ -88,7 +91,7 @@ export function FunnelExplorer({ years, c }: { years: FunnelYearView[]; c: numbe
           <select
             value={fy}
             onChange={(e) => setFy(e.target.value)}
-            className="h-8 rounded-lg border border-input bg-card px-2 text-sm"
+            className="h-8 rounded-lg border border-input bg-card px-2 text-base md:text-sm"
           >
             {years.map((y) => (
               <option key={y.fy} value={y.fy}>
@@ -165,7 +168,8 @@ export function FunnelExplorer({ years, c }: { years: FunnelYearView[]; c: numbe
             <YAxis
               type="number"
               dataKey="rate"
-              domain={[0, "auto"]}
+              domain={[0, yMax]}
+              allowDataOverflow
               tick={TICK}
               tickLine={false}
               axisLine={false}

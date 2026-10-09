@@ -24,6 +24,14 @@ export interface DecisionRecord {
   status: string
   date: string
   decision: string
+  /**
+   * The earlier record this one replaces, from a "Supersedes" line such as
+   * "DR-004, in part: how the evaluation's intervals are computed". Past records are never edited;
+   * the site shows the link on the superseded record instead.
+   */
+  supersedes: { id: string; part: string | null } | null
+  /** Later records that replace this one (filled in by listDecisions). */
+  supersededBy: { id: string; slug: string; part: string | null }[]
   /** The markdown after the title and the metadata list. */
   body: string
 }
@@ -31,6 +39,11 @@ export interface DecisionRecord {
 function field(md: string, name: string): string {
   const m = new RegExp(`^- \\*\\*${name}:\\*\\* (.+)$`, "m").exec(md)
   return m ? m[1].trim() : ""
+}
+
+function parseSupersedes(text: string): DecisionRecord["supersedes"] {
+  const m = /^(DR-\d{3})(?:, in part: (.+))?$/.exec(text)
+  return m ? { id: m[1], part: m[2] ? smartQuotes(m[2].trim()) : null } : null
 }
 
 export function parseDecision(slug: string, md: string): DecisionRecord {
@@ -45,6 +58,8 @@ export function parseDecision(slug: string, md: string): DecisionRecord {
     status: field(md, "Status"),
     date: field(md, "Date"),
     decision: smartQuotes(field(md, "Decision")),
+    supersedes: parseSupersedes(field(md, "Supersedes")),
+    supersededBy: [],
     body: firstSection >= 0 ? md.slice(firstSection + 1) : md,
   }
 }
@@ -52,10 +67,16 @@ export function parseDecision(slug: string, md: string): DecisionRecord {
 export function listDecisions(): DecisionRecord[] {
   const dir = path.join(CONTENT, "decisions")
   if (!existsSync(dir)) return []
-  return readdirSync(dir)
+  const all = readdirSync(dir)
     .filter((f) => /^DR-\d{3}-.+\.md$/.test(f))
     .sort()
     .map((f) => parseDecision(f.replace(/\.md$/, ""), readFileSync(path.join(dir, f), "utf8")))
+  for (const d of all) {
+    d.supersededBy = all
+      .filter((o) => o.supersedes?.id === d.id)
+      .map((o) => ({ id: o.id, slug: o.slug, part: o.supersedes!.part }))
+  }
+  return all
 }
 
 export function getDecision(slug: string): DecisionRecord | null {

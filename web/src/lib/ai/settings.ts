@@ -22,6 +22,12 @@ export interface AiStore {
   getSettings(): AiSettings
   saveSettings(s: AiSettings): void
   getKey(provider: Provider): string | null
+  /**
+   * Where the provider's saved key lives: true for localStorage ("remember on this device"), false
+   * for sessionStorage, null when there is no key. The "remember" setting is a default for the
+   * next key saved; this is the truth for a key already saved.
+   */
+  keyRemembered(provider: Provider): boolean | null
   setKey(provider: Provider, key: string, remember: boolean): void
   forgetKey(provider?: Provider): void
 }
@@ -58,6 +64,11 @@ export function createAiStore(
     },
     getKey(provider) {
       return session.getItem(KEY_PREFIX + provider) ?? local.getItem(KEY_PREFIX + provider)
+    },
+    keyRemembered(provider) {
+      // the same precedence as getKey: a session key is the one in use
+      if (session.getItem(KEY_PREFIX + provider) !== null) return false
+      return local.getItem(KEY_PREFIX + provider) !== null ? true : null
     },
     setKey(provider, key, remember) {
       const k = key.trim()

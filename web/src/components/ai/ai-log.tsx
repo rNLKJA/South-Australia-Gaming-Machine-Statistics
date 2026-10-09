@@ -58,7 +58,8 @@ export function AiLog() {
     [entries]
   )
   const shown = (entries ?? []).filter((e) => feature === "all" || e.feature === feature)
-  const stamp = () => new Date().toISOString().slice(0, 10)
+  // the local date (YYYY-MM-DD), matching the times shown on the entries
+  const stamp = () => new Date().toLocaleDateString("en-CA")
 
   if (entries === null) return <p className="text-sm text-muted-foreground">Loading the log…</p>
 
@@ -70,7 +71,7 @@ export function AiLog() {
           <select
             value={feature}
             onChange={(e) => setFeature(e.target.value)}
-            className="h-8 rounded-lg border border-input bg-card px-2 text-sm"
+            className="h-8 rounded-lg border border-input bg-card px-2 text-base md:text-sm"
           >
             <option value="all">All ({entries.length})</option>
             {features.map((f) => (
@@ -162,7 +163,13 @@ export function AiLog() {
             <li key={e.id} className="rounded-lg border bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <AiLabel />
+                  {e.output != null ? (
+                    <AiLabel />
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                      AI call, no output
+                    </span>
+                  )}
                   <span className="font-medium">{e.feature}</span>
                   <span className="text-muted-foreground">
                     {new Date(e.timestamp).toLocaleString("en-AU")}

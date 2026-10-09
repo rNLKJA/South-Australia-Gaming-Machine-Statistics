@@ -1,15 +1,15 @@
 import type { ZodType } from "zod"
 
-import { anthropicStructured, type CallOptions } from "./anthropic"
+import type { CallOptions } from "./anthropic"
 import type { AuditStore } from "./audit-log"
 import { AiError } from "./errors"
 import { activeModel } from "./models"
-import { openaiStructured } from "./openai"
 import type { AiResult, AiSettings, AuditEntry, StructuredRequest } from "./types"
 
 /**
  * Call the visitor's chosen provider for structured output and validate it with zod. The key goes
- * only to the provider's API, straight from the browser.
+ * only to the provider's API, straight from the browser. The provider adapters (and the Anthropic
+ * SDK) are loaded on the first call, so visitors without a key never download them.
  */
 export async function generateStructured<T>(
   settings: AiSettings,
@@ -20,11 +20,12 @@ export async function generateStructured<T>(
 ): Promise<AiResult<T>> {
   if (!key) throw new AiError("no_key")
   const requestedModel = activeModel(settings)
-  const t0 = performance.now()
-  const raw =
+  const call =
     settings.provider === "anthropic"
-      ? await anthropicStructured(key, requestedModel, req, opts)
-      : await openaiStructured(key, requestedModel, req, opts)
+      ? (await import("./anthropic")).anthropicStructured
+      : (await import("./openai")).openaiStructured
+  const t0 = performance.now()
+  const raw = await call(key, requestedModel, req, opts)
   const latencyMs = Math.round(performance.now() - t0)
   let parsed: unknown
   try {

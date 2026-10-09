@@ -104,6 +104,9 @@ export default function MethodsPage() {
                 >
                   <span className="kicker text-terracotta">
                     {d.id} · {d.status}
+                    {d.supersededBy.length
+                      ? ` · superseded${d.supersededBy.every((s) => s.part) ? " in part" : ""} by ${d.supersededBy.map((s) => s.id).join(", ")}`
+                      : ""}
                   </span>
                   <span className="mt-1 block text-sm font-semibold group-hover:underline">
                     {d.title}

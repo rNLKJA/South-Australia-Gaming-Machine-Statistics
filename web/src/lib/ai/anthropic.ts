@@ -44,9 +44,15 @@ export async function anthropicStructured(
   const common = {
     model: info.id,
     max_tokens: req.maxTokens ?? 4096,
-    // the schema prompt repeats across questions (and across an evaluation run): cache it
-    cache_control: { type: "ephemeral" as const },
-    system: req.system,
+    // The system prompt (rules and schema) is the same for every question; the question is the
+    // only part that changes. The cache breakpoint goes on the system block so that later questions
+    // can read it back. (Top-level automatic caching would put it after the question, where no
+    // other request ever reads it.) A prefix shorter than the model's minimum is not cached: the
+    // described prompt (about 1,500 tokens) caches on Claude Sonnet 5.5 (minimum 512) but not on
+    // Claude Haiku 4.5 (minimum 4,096).
+    system: [
+      { type: "text" as const, text: req.system, cache_control: { type: "ephemeral" as const } },
+    ],
     messages: [{ role: "user" as const, content: req.user }],
   }
   try {
@@ -71,6 +77,7 @@ export async function anthropicStructured(
             (msg.usage.cache_creation_input_tokens ?? 0),
           outputTokens: msg.usage.output_tokens,
           cachedInputTokens: msg.usage.cache_read_input_tokens ?? 0,
+          cacheWriteInputTokens: msg.usage.cache_creation_input_tokens ?? 0,
         }
       : null
     if (msg.stop_reason === "refusal") {

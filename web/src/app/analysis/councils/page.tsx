@@ -10,8 +10,10 @@ import { PageHeader, SectionHeading } from "@/components/common/page-header"
 import { Stat } from "@/components/common/stat"
 import { SupportNote } from "@/components/common/support-note"
 import { councilsView } from "@/lib/analysis/view"
+import { statewide } from "@/lib/data"
 import { fmtAud, fmtDecimal } from "@/lib/format"
 import { fyLabel } from "@/lib/fy"
+import { annualStatewide } from "@/lib/statewide"
 
 export const metadata: Metadata = {
   title: "Council analysis",
@@ -29,6 +31,9 @@ export default function CouncilAnalysisPage() {
   const belowIndependent = v.persistent.filter((p) => p.directionIndependent === "below")
   const dep = v.dependence
   const smallest = [...latest.points].sort((a, b) => a.machines - b.machines)[0]
+  // the Statewide page divides by the year's mean machine count (DR-002); council rates use the
+  // June count, so the state rate they are compared with must too
+  const statewideRate = annualStatewide(statewide).find((y) => y.fy === latest.fy)?.ngrPerMachine
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -48,9 +53,13 @@ export default function CouncilAnalysisPage() {
 
       <section aria-label="Summary" className="mb-12 grid grid-cols-2 gap-6 md:grid-cols-4">
         <Stat
-          label={`State NGR per machine, ${fyLabel(latest.fy)}`}
+          label={`State rate, council basis, ${fyLabel(latest.fy)}`}
           value={fmtAud(latest.stateRate)}
-          detail={`${latest.points.length} published areas`}
+          detail={`NGR ÷ machines at 30 June across the ${latest.points.length} published areas${
+            statewideRate
+              ? `; the Statewide page divides by the year’s mean machines (${fmtAud(statewideRate)})`
+              : ""
+          }`}
           accent="terracotta"
         />
         <Stat
@@ -84,7 +93,7 @@ export default function CouncilAnalysisPage() {
         </SectionHeading>
         <ChartFrame
           title="NGR per machine by council area"
-          description="Nominal dollars of each year, so every area is compared with the state rate of the same year."
+          description="Nominal dollars of each year, so every area is compared with the state rate of the same year: the published areas’ NGR divided by their machines at 30 June, the same basis as each area’s own rate."
           source={
             <>
               Limits: state rate × exp(± z · c / √machines), with c pooled from every area’s

@@ -1,7 +1,7 @@
 // Copy the repository's docs (methods, data card, model card, AI use statement, decision records)
 // into web/content/, where the website renders them. The copies are committed because Vercel
 // builds from web/ only; src/server/content.test.ts fails if they drift from docs/.
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -20,9 +20,15 @@ mkdirSync(path.join(out, "decisions"), { recursive: true })
 for (const f of ["methods.md", "data-card.md", "model-card.md", "ai-use-statement.md"]) {
   copyFileSync(path.join(docs, f), path.join(out, f))
 }
-for (const f of readdirSync(path.join(docs, "decisions")).filter((f) =>
-  /^DR-\d{3}-.+\.md$/.test(f)
-)) {
+const records = readdirSync(path.join(docs, "decisions"))
+  .filter((f) => /^DR-\d{3}-.+\.md$/.test(f))
+  .sort()
+for (const f of records) {
   copyFileSync(path.join(docs, "decisions", f), path.join(out, "decisions", f))
 }
+// the slugs src/proxy.ts accepts: any other /methods/decisions/<slug> gets a real 404
+writeFileSync(
+  path.join(out, "decision-slugs.json"),
+  JSON.stringify(records.map((f) => f.replace(/\.md$/, ""))) + "\n"
+)
 console.log("sync-docs: copied docs/ into web/content/")

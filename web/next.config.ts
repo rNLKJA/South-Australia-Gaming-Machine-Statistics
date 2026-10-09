@@ -1,3 +1,5 @@
+import { execSync } from "node:child_process"
+
 import type { NextConfig } from "next"
 
 /**
@@ -31,7 +33,26 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ")
 
+/**
+ * The build's short commit, logged with every AI call (lib/ai/prompt-fingerprint.ts): an explicit
+ * NEXT_PUBLIC_APP_VERSION (CLI deploys pass it with --build-env), Vercel's VERCEL_GIT_COMMIT_SHA,
+ * the local checkout's HEAD, or "dev".
+ */
+function appVersion(): string {
+  if (process.env.NEXT_PUBLIC_APP_VERSION) return process.env.NEXT_PUBLIC_APP_VERSION
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA
+  if (sha) return sha.slice(0, 7)
+  try {
+    return execSync("git rev-parse --short=7 HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim()
+  } catch {
+    return "dev"
+  }
+}
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: appVersion() },
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
