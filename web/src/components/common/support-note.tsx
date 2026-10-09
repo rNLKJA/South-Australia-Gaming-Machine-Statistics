@@ -3,7 +3,11 @@ import { LifeBuoy } from "lucide-react"
 import { site } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
-/** The gambling-harm support line, shown on every page. Neutral and practical. */
+/**
+ * The gambling-harm support line, shown on every page. Neutral and practical. The full note in the
+ * footer is the page's "Gambling support" landmark; the compact copy near the top of a page is a
+ * plain note, so a page never has two landmarks with the same name.
+ */
 export function SupportNote({
   className,
   compact = false,
@@ -11,8 +15,10 @@ export function SupportNote({
   className?: string
   compact?: boolean
 }) {
+  const Tag = compact ? "div" : "aside"
   return (
-    <aside
+    <Tag
+      {...(compact ? { role: "note" } : {})}
       aria-label="Gambling support"
       className={cn(
         "flex gap-3 rounded-lg border border-teal/25 bg-teal-soft/60 p-4 text-sm text-foreground",
@@ -37,6 +43,6 @@ export function SupportNote({
         </a>
         .
       </p>
-    </aside>
+    </Tag>
   )
 }

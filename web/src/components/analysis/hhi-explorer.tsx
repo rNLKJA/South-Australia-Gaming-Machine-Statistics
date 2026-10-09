@@ -125,8 +125,9 @@ export function HhiExplorer({
           color="var(--chart-2)"
           valueFormat={(x) => fmtInt(x)}
           tickFormat={(k) => fyShort(k).replace(/^20/, "’").replace("/", "–")}
-          reference={{ y: 2500, label: "2,500" }}
-          yDomain={[2000, 4200]}
+          reference={{ y: 2500, label: "2,500: “highly concentrated” (US 2010 guidelines)" }}
+          yDomain={[2000, 4000]}
+          yTicks={[2000, 2500, 3000, 3500, 4000]}
           height={280}
           ariaLabel="Annual mean HHI by financial year with 95% bootstrap intervals over months; the intervals are narrow because concentration changes slowly within a year."
         />

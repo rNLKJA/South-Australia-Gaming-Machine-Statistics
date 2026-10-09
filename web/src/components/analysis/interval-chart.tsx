@@ -38,6 +38,7 @@ export function IntervalChart({
   height = 300,
   reference,
   yDomain,
+  yTicks,
 }: {
   data: IntervalDatum[]
   color?: string
@@ -48,6 +49,8 @@ export function IntervalChart({
   height?: number
   reference?: { y: number; label: string }
   yDomain?: [number | "auto" | "dataMin", number | "auto" | "dataMax"]
+  /** Explicit y-axis ticks (otherwise recharts picks them from the domain). */
+  yTicks?: number[]
 }) {
   const rows = data.map((d) => ({
     ...d,
@@ -90,6 +93,7 @@ export function IntervalChart({
             axisLine={false}
             width={64}
             domain={yDomain ?? ["auto", "auto"]}
+            {...(yTicks ? { ticks: yTicks } : {})}
             tickFormatter={(v: number) => (axisFormat ?? valueFormat)(v)}
           />
           <Tooltip

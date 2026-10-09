@@ -3,6 +3,8 @@ import "server-only"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 
+import { smartQuotes } from "@/lib/typography"
+
 /**
  * The markdown documents rendered under /methods: copies of the repository's docs/ kept in
  * web/content/ by tools/sync-docs.mjs (Vercel builds from web/ only). Read at build time.
@@ -38,10 +40,11 @@ export function parseDecision(slug: string, md: string): DecisionRecord {
   return {
     slug,
     id: h1[1],
-    title: h1[2].trim(),
+    // display text: curly quotes, as on the hand-written pages
+    title: smartQuotes(h1[2].trim()),
     status: field(md, "Status"),
     date: field(md, "Date"),
-    decision: field(md, "Decision"),
+    decision: smartQuotes(field(md, "Decision")),
     body: firstSection >= 0 ? md.slice(firstSection + 1) : md,
   }
 }

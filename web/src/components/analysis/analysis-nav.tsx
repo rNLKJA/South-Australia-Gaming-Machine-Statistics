@@ -14,14 +14,14 @@ export const ANALYSIS_PAGES = [
 export function AnalysisNav({ current }: { current: (typeof ANALYSIS_PAGES)[number]["href"] }) {
   return (
     <nav aria-label="Analysis pages" className="mb-10 border-b">
-      <ul className="-mb-px flex flex-wrap gap-x-1">
+      <ul className="-mb-px flex gap-x-1 overflow-x-auto whitespace-nowrap">
         {ANALYSIS_PAGES.map((p) => (
           <li key={p.href}>
             <Link
               href={p.href}
               aria-current={p.href === current ? "page" : undefined}
               className={cn(
-                "inline-block border-b-2 px-3 py-2 text-sm font-medium text-ink-soft hover:text-foreground",
+                "inline-block border-b-2 px-2.5 py-2 text-sm font-medium text-ink-soft hover:text-foreground sm:px-3",
                 p.href === current ? "border-terracotta text-foreground" : "border-transparent"
               )}
             >

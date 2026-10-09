@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils"
 export function MobileNav() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  // the same rule as the desktop NavLinks: a section stays current on its sub-pages
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
@@ -20,7 +22,10 @@ export function MobileNav() {
       >
         <Menu aria-hidden />
       </SheetTrigger>
-      <SheetContent side="right" className="w-[85vw] max-w-sm bg-background p-0">
+      <SheetContent
+        side="right"
+        className="max-h-dvh w-[85vw] max-w-sm overflow-y-auto overscroll-contain bg-background p-0"
+      >
         <div className="border-b px-5 py-4">
           <SheetTitle className="font-serif text-lg">{site.name}</SheetTitle>
         </div>
@@ -44,10 +49,10 @@ export function MobileNav() {
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  aria-current={pathname === item.href ? "page" : undefined}
+                  aria-current={isActive(item.href) ? "page" : undefined}
                   className={cn(
                     "block rounded-md px-3 py-2.5 hover:bg-accent",
-                    pathname === item.href && "bg-accent"
+                    isActive(item.href) && "bg-accent"
                   )}
                 >
                   <span className="block text-base font-medium">{item.label}</span>

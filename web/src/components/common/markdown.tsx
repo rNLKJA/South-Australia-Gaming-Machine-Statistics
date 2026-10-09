@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 import { docHref, slugify } from "@/lib/doc-links"
+import { rehypeTypography } from "@/lib/typography"
 import { cn } from "@/lib/utils"
 
 function textOf(node: ReactNode): string {
@@ -22,6 +23,7 @@ const LEVELS: Heading[] = ["h1", "h2", "h3", "h4", "h5", "h6"]
  * Renders the repository's markdown docs in the site's editorial style. Headings get ids (for
  * anchors such as /methods#limitations) and links between docs become site routes. `topLevel` is
  * the HTML heading a markdown `#` becomes, so `##` sections can be h2 on a page with its own h1.
+ * Straight quotes become curly ones and d_z gets a real subscript (see lib/typography).
  */
 export function Markdown({
   source,
@@ -99,7 +101,11 @@ export function Markdown({
   }
   return (
     <div className={cn("max-w-[75ch]", className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeTypography]}
+        components={components}
+      >
         {source}
       </ReactMarkdown>
     </div>

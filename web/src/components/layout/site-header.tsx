@@ -27,7 +27,7 @@ export function SiteHeader() {
             <span className="truncate font-serif text-[1.05rem] font-semibold tracking-tight sm:text-lg">
               {site.name}
             </span>
-            <span className="kicker mt-1 hidden text-[0.65rem] whitespace-nowrap text-muted-foreground sm:block xl:hidden 2xl:block">
+            <span className="kicker mt-1 hidden truncate text-[0.65rem] text-muted-foreground sm:block xl:hidden">
               South Australia · FY 2009/10 – 2024/25
             </span>
           </span>

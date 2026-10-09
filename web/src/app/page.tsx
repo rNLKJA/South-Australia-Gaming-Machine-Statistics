@@ -10,6 +10,7 @@ import { annualManufacturers, monthlyShares } from "@/lib/manufacturers"
 import { nav, site } from "@/lib/site"
 import { sum } from "@/lib/stats"
 import { annualStatewide, type StatewideYear } from "@/lib/statewide"
+import { cn } from "@/lib/utils"
 
 export default function Home() {
   const years = annualStatewide(statewide)
@@ -126,7 +127,14 @@ export default function Home() {
         </div>
         <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {nav.map((n, i) => (
-            <li key={n.href} className="bg-card">
+            <li
+              key={n.href}
+              className={cn(
+                "bg-card",
+                // an odd last card spans the two-column row so no empty cell shows the border colour
+                i === nav.length - 1 && nav.length % 2 === 1 && "sm:col-span-2 lg:col-span-1"
+              )}
+            >
               <Link href={n.href} className="group flex h-full flex-col p-5 hover:bg-accent/50">
                 <span className="kicker tabular text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
