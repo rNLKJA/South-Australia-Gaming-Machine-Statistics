@@ -12,3 +12,13 @@ describe("bundled MapLibre worker", () => {
     expect(vendored.equals(installed)).toBe(true)
   })
 })
+
+describe("bundled sql.js worker", () => {
+  it("matches the installed sql.js version (run `pnpm sync:sqljs` after upgrading)", () => {
+    for (const f of ["worker.sql-wasm.js", "sql-wasm.wasm"]) {
+      const vendored = read(`../../public/vendor/sqljs/${f}`)
+      const installed = read(`../../node_modules/sql.js/dist/${f}`)
+      expect(vendored.equals(installed), f).toBe(true)
+    }
+  })
+})

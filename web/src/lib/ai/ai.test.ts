@@ -28,7 +28,7 @@ import {
 } from "./sql-eval"
 import type { AiSettings, StructuredRequest } from "./types"
 
-const KEY = "sk-ant-test-0123456789abcdef"
+const KEY = "fake-anthropic-key-for-tests-0123456789"
 const REQ: StructuredRequest = {
   system: "system prompt",
   user: "Question: how much?",
@@ -172,11 +172,11 @@ describe("OpenAI adapter (fetch mocked)", () => {
 
   it("posts a json_schema response format with the bearer key", async () => {
     const calls: Captured[] = []
-    const r = await openaiStructured("sk-openai-test-123456", "gpt-5-mini", REQ, {
+    const r = await openaiStructured("fake-openai-key-for-tests-123456", "gpt-5-mini", REQ, {
       fetch: mockFetch(200, completion('{"a":1}'), calls),
     })
     expect(calls[0].url).toBe(OPENAI_URL)
-    expect(calls[0].headers.get("authorization")).toBe("Bearer sk-openai-test-123456")
+    expect(calls[0].headers.get("authorization")).toBe("Bearer fake-openai-key-for-tests-123456")
     expect(calls[0].body.response_format).toMatchObject({
       type: "json_schema",
       json_schema: { name: "answer", strict: true },
@@ -187,7 +187,7 @@ describe("OpenAI adapter (fetch mocked)", () => {
 
   it("maps quota, refusal and length errors", async () => {
     const run = (status: number, body: unknown) =>
-      openaiStructured("sk-openai-test-123456", "gpt-5-mini", REQ, {
+      openaiStructured("fake-openai-key-for-tests-123456", "gpt-5-mini", REQ, {
         fetch: mockFetch(status, body),
       }).catch((e: AiError) => e)
     expect(
