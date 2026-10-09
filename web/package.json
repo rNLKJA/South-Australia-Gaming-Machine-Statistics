@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node tools/sync-docs.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -18,7 +19,9 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "sync:maplibre-worker": "node -e \"require('fs').copyFileSync('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs','public/vendor/maplibre-gl-worker.mjs')\""
+    "sync:maplibre-worker": "node -e \"require('fs').copyFileSync('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs','public/vendor/maplibre-gl-worker.mjs')\"",
+    "sync:sqljs": "node -e \"for (const f of ['worker.sql-wasm.js','sql-wasm.wasm']) require('fs').copyFileSync('node_modules/sql.js/dist/'+f,'public/vendor/sqljs/'+f)\"",
+    "docs:sync": "node tools/sync-docs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
