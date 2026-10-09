@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import pivots from "@/data/info-pivots.json"
 import { cpi, statewide } from "@/lib/data"
 
-import { annualStatewide, monthlySeries, statewideAsBuilt } from "./statewide"
+import { annualStatewide, COVID_FY, monthlySeries, statewideAsBuilt } from "./statewide"
 
 type FyTable = Record<string, number>
 const P = pivots.pivots as unknown as Record<string, { all: FyTable }>
@@ -53,6 +53,18 @@ describe("annualStatewide (parity with the workbook INFO pivots)", () => {
   it("computes NGR per machine from annual NGR and mean machines", () => {
     const y = byFy.get("2024-25")!
     expect(y.ngrPerMachine).toBeCloseTo((1008.46 * 1e6) / y.machinesMean!, 6)
+  })
+
+  it("leaves NGR per machine blank for FY 2019/20, when machines were reported as zero", () => {
+    // March and June 2020 carry $41.2m of NGR against zero machines, so annual NGR over the
+    // machine mean would read $63,532 (+13% on FY 2018/19) during the closures.
+    const y = byFy.get(COVID_FY)!
+    expect(y.zeroMachineMonths).toBe(4)
+    expect((y.ngr! * 1e6) / y.machinesMean!).toBeCloseTo(63532, -1)
+    expect(y.ngrPerMachine).toBeNull()
+    expect(years.filter((x) => x.months && x.ngrPerMachine == null).map((x) => x.fy)).toEqual([
+      COVID_FY,
+    ])
   })
 })
 

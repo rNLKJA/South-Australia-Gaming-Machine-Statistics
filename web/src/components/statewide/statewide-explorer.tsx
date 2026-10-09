@@ -41,7 +41,7 @@ const DESCRIPTIONS: Record<StatewideMeasure, string> = {
   tax: "Gaming tax liability assessed on NGR.",
   venueShare: "The part of NGR kept by venues after gaming tax.",
   ngrPerMachine:
-    "NGR divided by the number of machines: annual NGR over the mean monthly machine count, or monthly NGR over that month’s machines.",
+    "NGR divided by the number of machines: annual NGR over the mean monthly machine count, or monthly NGR over that month’s machines. Not computed for FY 2019/20 or for months when CBS reported zero machines.",
   machines:
     "Gaming machines in hotels and clubs (the Adelaide Casino is excluded). Annual values are the mean of the monthly counts.",
   venues:

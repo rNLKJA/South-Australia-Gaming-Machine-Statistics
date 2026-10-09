@@ -26,7 +26,7 @@ import {
 } from "@/lib/data"
 import { fmtAudCents, fmtDec1, fmtInt, fmtMillions, fmtPct } from "@/lib/format"
 import { fyLabel, fyShort, monthLabel } from "@/lib/fy"
-import { LGA_FYS, LGA_NO_MACHINES_FY, reconcile } from "@/lib/lga"
+import { GROUPING_RULE_CHANGE_FY, LGA_FYS, LGA_NO_MACHINES_FY, reconcile } from "@/lib/lga"
 import { missingLicenceMonths } from "@/lib/licences"
 import { missingManufacturerMonths } from "@/lib/manufacturers"
 import { asBuiltComparisons, powerBiFields } from "@/lib/powerbi"
@@ -58,6 +58,9 @@ const TOC = [
 ]
 
 export default function DataQualityPage() {
+  const groupCount = (fy: string) =>
+    lgaUnits.filter((u) => u.fy === fy && u.kind === "group").length
+  const ruleFyIndex = LGA_FYS.indexOf(GROUPING_RULE_CHANGE_FY)
   const sw = new Map(annualStatewide(statewide).map((y) => [y.fy, y.ngr]))
   const rec = reconcile(lgaRows, lgaUnits, sw)
   const printed = new Map((verification.lga.totals ?? []).map((t) => [t.fy, t.printedTotal]))
@@ -256,13 +259,14 @@ export default function DataQualityPage() {
 
       <Section id="groups" n={3} title="Combined groups and the equal split">
         <p>
-          CBS combines councils with fewer than five venues into groups so that no single venue’s
-          revenue can be worked out. The workbook stored each group by repeating it on every
-          member’s row after dividing it equally. In FY 2013/14, for example, CBS published{" "}
-          <em>Barunga West, Copper Coast</em> as one row with NGR of {fmtAudCents(example.ngr)}; the
-          workbook shows {fmtAudCents(example.perRowNgr)} against each council. That is why{" "}
-          {fmtInt(fractional)} workbook rows have fractional machine or venue counts such as 85.5 or
-          187.33.
+          CBS combines councils with few venues into groups so that no single venue’s revenue can be
+          worked out. The releases up to FY 2021/22 say a council with fewer than five venues is
+          grouped with another; from FY 2022/23 the threshold is fewer than three. The workbook
+          stored each group by repeating it on every member’s row after dividing it equally. In FY
+          2013/14, for example, CBS published <em>Barunga West, Copper Coast</em> as one row with
+          NGR of {fmtAudCents(example.ngr)}; the workbook shows {fmtAudCents(example.perRowNgr)}{" "}
+          against each council. That is why {fmtInt(fractional)} workbook rows have fractional
+          machine or venue counts such as 85.5 or 187.33.
         </p>
         <p>
           This site groups the workbook rows back together (rows of one year with identical NGR and
@@ -425,10 +429,18 @@ export default function DataQualityPage() {
             CBS reissued the FY 2022/23 LGA release in January 2024 to correct its source data. The
             archive holds the reissued version.
           </Gap>
+          <Gap title={`Grouping rule changed in ${fyLabel(GROUPING_RULE_CHANGE_FY)}`}>
+            The FY 2013/14 to 2021/22 LGA releases group a council with fewer than five venues; the
+            FY 2022/23 release and later ones group only those with fewer than three. That is why
+            the number of combined groups falls from {groupCount(LGA_FYS[ruleFyIndex - 1])} to{" "}
+            {groupCount(GROUPING_RULE_CHANGE_FY)} that year, and why Campbelltown and Kangaroo
+            Island (three venues each) are published on their own from then, as Grant was in FY
+            2022/23.
+          </Gap>
           <Gap title="Changing council groups">
-            The groups CBS combines change from year to year (Grant and Mount Gambier were separate
-            in FY 2022/23 and combined again the year after, for example). A council’s history on
-            the Councils page notes every change of group.
+            The groups CBS combines also change from year to year under the same rule (Grant and
+            Mount Gambier were separate in FY 2022/23 and combined again the year after, for
+            example). A council’s history on the Councils page notes every change of group.
           </Gap>
         </ul>
       </Section>
@@ -531,8 +543,10 @@ export default function DataQualityPage() {
         <Callout className="mt-6" title="Reproducible">
           The field list is read from the <code className="font-mono text-[0.85em]">.pbix</code>{" "}
           file’s report layout by{" "}
-          <code className="font-mono text-[0.85em]">scripts/build_data.py</code>, and the as-built
-          sums are checked against the workbook’s INFO pivots by the site’s unit tests. See{" "}
+          <code className="font-mono text-[0.85em]">scripts/build_data.py</code>. The site’s unit
+          tests check that the statewide as-built sums of machines and venues equal the workbook’s
+          INFO pivots exactly, and that the licence and manufacturer as-built sums are twelve times
+          the monthly mean for a full year (the workbook has no “Sum of” pivot for those). See{" "}
           <Link href="/downloads" className="link">
             Downloads
           </Link>{" "}

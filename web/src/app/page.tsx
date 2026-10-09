@@ -28,13 +28,16 @@ export default function Home() {
   ]
   const found = sum(checked.map((f) => f.found))
   const total = sum(checked.map((f) => f.checked))
+  const exceptions = sum(checked.map((f) => f.misses.length))
+  const scanned = sum(checked.map((f) => f.imageOnly?.length ?? 0))
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
   const cards: Record<string, string> = {
     "/statewide": `${fmtMillions(latest.ngr)} NGR in ${fyLabel(latest.fy)}, ${fmtChange(latest.ngrChange)} on the year before.`,
     "/councils": `${groupsLatest} combined council groups in FY 2024/25, mapped whole instead of split.`,
     "/licences": `${fmtInt(entitlements)} machine entitlements held at June 2025.`,
     "/manufacturers": `Aristocrat supplied ${fmtPct(maker.shares["Aristocrat"], 0)} of machines in FY 2024/25.`,
-    "/data-quality": `${fmtInt(found)} of ${fmtInt(total)} figures found in the CBS PDFs; four exceptions listed.`,
+    "/data-quality": `${fmtInt(found)} of ${fmtInt(total)} figures found in the CBS PDFs; ${plural(exceptions, "exception", "exceptions")}${scanned ? ` and ${plural(scanned, "scanned PDF", "scanned PDFs")}` : ""} listed.`,
     "/downloads":
       "Eight tidy CSV tables and a read-me, generated from the same code as the charts.",
   }
@@ -156,8 +159,9 @@ export default function Home() {
             described by its average or its June figure, never by adding months together.
           </Term>
           <Term title="Small councils are grouped">
-            CBS publishes councils with fewer than five venues as combined groups. Group figures
-            belong to the whole group and are never divided between its councils here.
+            CBS publishes councils with few venues as combined groups: fewer than five venues up to
+            FY 2021/22, fewer than three from FY 2022/23. Group figures belong to the whole group
+            and are never divided between its councils here.
           </Term>
         </dl>
       </section>

@@ -13,8 +13,6 @@ export const COVID_FY: FY = "2019-20"
 export type StatewideMeasure =
   "ngr" | "tax" | "venueShare" | "machines" | "venues" | "ngrPerMachine"
 
-export const MONEY_MEASURES: StatewideMeasure[] = ["ngr", "tax", "venueShare"]
-
 export interface StatewideYear {
   fy: FY
   /** Monthly rows present for the year (12, or 0 for the missing year). */
@@ -30,7 +28,11 @@ export interface StatewideYear {
   venuesJune: number | null
   /** Months in which CBS reported zero machines (COVID-19 closures). */
   zeroMachineMonths: number
-  /** NGR per machine in dollars: annual NGR / mean machines. */
+  /**
+   * NGR per machine in dollars: annual NGR / mean machines. Null for a year in which CBS reported
+   * zero machines for some months (the COVID-19 closures of FY 2019/20): those months still carry
+   * NGR but add nothing to the machine mean, which would overstate the figure.
+   */
   ngrPerMachine: number | null
   /** Tax as a share of NGR. */
   taxRate: number | null
@@ -90,7 +92,8 @@ export function annualStatewide(
     const venueShare = money((r) => r.venueShare)
     const machinesMean = mean(rs.map((r) => r.machines))
     const june = lastMonth(rs)
-    const ngrPerMachine = machinesMean ? (ngr * 1e6) / machinesMean : null
+    const zeroMachineMonths = rs.filter((r) => r.machines === 0).length
+    const ngrPerMachine = machinesMean && !zeroMachineMonths ? (ngr * 1e6) / machinesMean : null
     out.push({
       fy,
       months: rs.length,
@@ -101,7 +104,7 @@ export function annualStatewide(
       machinesJune: june?.machines ?? null,
       venuesMean: mean(rs.map((r) => r.venues)),
       venuesJune: june?.venues ?? null,
-      zeroMachineMonths: rs.filter((r) => r.machines === 0).length,
+      zeroMachineMonths,
       ngrPerMachine,
       taxRate: ngr ? tax / ngr : null,
       ngrChange: prevNgr ? ngr / prevNgr - 1 : null,
@@ -146,17 +149,6 @@ export function monthlySeries(
   return [...rows]
     .sort((a, b) => a.month.localeCompare(b.month))
     .map((r) => ({ month: r.month, fy: r.fy, value: monthlyValue(r, measure, real) }))
-}
-
-export function annualValue(year: StatewideYear, measure: StatewideMeasure): number | null {
-  switch (measure) {
-    case "machines":
-      return year.machinesMean
-    case "venues":
-      return year.venuesMean
-    default:
-      return year[measure]
-  }
 }
 
 /**

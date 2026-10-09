@@ -16,6 +16,7 @@ import {
 import { cpiSource, meta } from "@/lib/data"
 import { fmtAud, fmtChange, fmtInt, fmtMillions, fmtPct } from "@/lib/format"
 import { fyLabel } from "@/lib/fy"
+import { COVID_FY } from "@/lib/statewide"
 import { BASE_FY, statewideView } from "@/lib/statewide-view"
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default function StatewidePage() {
   const latest = view.annual.at(-1)!
   const first = view.annual[0]
   const realFirst = view.annualReal[0]
-  const covid = view.annual.find((y) => y.fy === "2019-20")!
+  const covid = view.annual.find((y) => y.fy === COVID_FY)!
   const baseLabel = fyLabel(BASE_FY)
 
   return (
@@ -97,7 +98,8 @@ export default function StatewidePage() {
         <Callout title="COVID-19 closures in FY 2019/20" tone="caution">
           Gaming rooms closed in late March 2020. CBS reported zero machines for March to June 2020
           and almost no NGR for April to June, so FY 2019/20 NGR ({fmtMillions(covid.ngr)}) and the
-          year’s mean machine count are not comparable with other years.
+          year’s mean machine count are not comparable with other years. NGR per machine is left
+          blank for the year: March and June still carry NGR against zero machines.
         </Callout>
         <Callout title="What the figures cover">
           The statewide releases cover hotels and clubs. CBS notes that the machine counts exclude
@@ -169,8 +171,8 @@ export default function StatewidePage() {
                   <TableRow key={y.fy}>
                     <TableHead scope="row" className="font-medium whitespace-nowrap">
                       {fyLabel(y.fy)}
-                      {y.fy === "2019-20" ? (
-                        <span className="ml-1.5 text-xs font-normal text-ochre">COVID-19</span>
+                      {y.fy === COVID_FY ? (
+                        <span className="ml-1.5 text-xs font-normal text-ochre-ink">COVID-19</span>
                       ) : null}
                     </TableHead>
                     <TableCell className="tabular text-right">{fmtMillions(y.ngr, 2)}</TableCell>
@@ -198,6 +200,8 @@ export default function StatewidePage() {
             Downloads
           </Link>
           . Change is against the previous financial year and is left blank after the missing year.
+          NGR per machine is left blank for {fyLabel(COVID_FY)}, when CBS reported zero machines for
+          March to June 2020.
         </p>
       </section>
     </div>

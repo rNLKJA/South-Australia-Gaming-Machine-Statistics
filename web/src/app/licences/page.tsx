@@ -94,9 +94,9 @@ export default function LicencesPage() {
 
       <section aria-label="June 2025" className="mb-10 grid grid-cols-2 gap-6 md:grid-cols-4">
         <Stat
-          label="Entitlements held, June 2025"
-          value={fmtInt(total(ent, last))}
-          detail={`${fmtInt(total(ent, first))} in June 2010`}
+          label="Entitlements (excluding the casino)"
+          value={fmtInt(total(ent, last, ["Casino"]))}
+          detail={`${fmtInt(total(ent, first, ["Casino"]))} in June 2010. The casino, listed separately from 2015, holds ${fmtInt(cell(ent, last, "Casino"))} more.`}
           accent="terracotta"
         />
         <Stat

@@ -214,6 +214,8 @@ function readme(files: Download[]) {
     "- Machines and venues are point-in-time counts: summarise a year by its mean or its June value, never by adding months.",
     "- LGA rows are the areas CBS published. Combined groups are kept whole; never divide them between member councils.",
     "- FY 2019/20 LGA machine counts were not published (left blank).",
+    "- Statewide NGR per machine is blank for FY 2019/20: CBS reported zero machines for Mar to Jun 2020 while NGR was still recorded.",
+    "- CBS groups councils with fewer than 5 venues (FY 2013/14 to 2021/22) or fewer than 3 (from FY 2022/23), so group compositions change between years.",
     `- Licence statistics for ${["Jul", "Aug", "Sep"].join(", ")} 2017 and manufacturer reports for Oct to Dec 2023 are missing.`,
     "",
     "Files",
