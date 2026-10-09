@@ -348,8 +348,12 @@ export default function DataQualityPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead scope="col">Name in the workbook</TableHead>
-                <TableHead scope="col">Mapped to</TableHead>
+                <TableHead scope="col" className="whitespace-normal">
+                  Name in the workbook
+                </TableHead>
+                <TableHead scope="col" className="hidden sm:table-cell">
+                  Mapped to
+                </TableHead>
                 <TableHead scope="col">Why</TableHead>
                 <TableHead scope="col" className="hidden md:table-cell">
                   Years
@@ -359,8 +363,14 @@ export default function DataQualityPage() {
             <TableBody>
               {xwChanged.map((c) => (
                 <TableRow key={c.workbookName}>
-                  <TableCell className="font-medium whitespace-normal">{c.workbookName}</TableCell>
-                  <TableCell className="whitespace-normal">
+                  <TableCell className="font-medium whitespace-normal">
+                    {c.workbookName}
+                    {/* Phones fold "Mapped to" in here so the reason stays on screen. */}
+                    <span className="block text-xs font-normal text-muted-foreground sm:hidden">
+                      → {c.displayName}
+                    </span>
+                  </TableCell>
+                  <TableCell className="hidden whitespace-normal sm:table-cell">
                     {c.displayName}
                     {c.absName !== c.displayName ? (
                       <span className="block text-xs text-muted-foreground">ABS: {c.absName}</span>
@@ -462,7 +472,9 @@ export default function DataQualityPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead scope="col">Power BI page</TableHead>
+                <TableHead scope="col" className="hidden sm:table-cell">
+                  Power BI page
+                </TableHead>
                 <TableHead scope="col">Measure</TableHead>
                 <TableHead scope="col" className="text-right">
                   As built (Sum)
@@ -470,7 +482,7 @@ export default function DataQualityPage() {
                 <TableHead scope="col" className="text-right">
                   Corrected
                 </TableHead>
-                <TableHead scope="col" className="text-right">
+                <TableHead scope="col" className="hidden text-right sm:table-cell">
                   Ratio
                 </TableHead>
               </TableRow>
@@ -478,12 +490,13 @@ export default function DataQualityPage() {
             <TableBody>
               {comparisons.map((c) => (
                 <TableRow key={c.measure}>
-                  <TableCell className="whitespace-normal text-muted-foreground">
+                  <TableCell className="hidden whitespace-normal text-muted-foreground sm:table-cell">
                     {c.page}
                   </TableCell>
-                  <TableCell className="font-medium whitespace-normal">
+                  <TableCell className="min-w-36 font-medium whitespace-normal">
                     {c.measure}
                     <span className="block text-xs font-normal text-muted-foreground">
+                      <span className="sm:hidden">{c.page} · </span>
                       {c.correctedMethod}
                     </span>
                   </TableCell>
@@ -492,13 +505,13 @@ export default function DataQualityPage() {
                   </TableCell>
                   <TableCell className="tabular text-right">
                     {fmtValue(c.corrected, c.unit)}
+                    {/* Phones show the ratio under the corrected value instead of a column. */}
+                    <span className="block text-xs sm:hidden">
+                      <Ratio asBuilt={c.asBuilt} corrected={c.corrected} />
+                    </span>
                   </TableCell>
-                  <TableCell className="tabular text-right">
-                    {Math.abs(c.asBuilt / c.corrected - 1) < 1e-9 ? (
-                      <span className="text-teal">correct</span>
-                    ) : (
-                      <span className="text-terracotta">{fmtDec1(c.asBuilt / c.corrected)}×</span>
-                    )}
+                  <TableCell className="tabular hidden text-right sm:table-cell">
+                    <Ratio asBuilt={c.asBuilt} corrected={c.corrected} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -554,6 +567,14 @@ export default function DataQualityPage() {
         </Callout>
       </Section>
     </div>
+  )
+}
+
+function Ratio({ asBuilt, corrected }: { asBuilt: number; corrected: number }) {
+  return Math.abs(asBuilt / corrected - 1) < 1e-9 ? (
+    <span className="text-teal">correct</span>
+  ) : (
+    <span className="text-terracotta">{fmtDec1(asBuilt / corrected)}×</span>
   )
 }
 
