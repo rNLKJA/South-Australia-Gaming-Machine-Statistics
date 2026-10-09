@@ -4,7 +4,7 @@
 
 **An explorer for South Australia's gaming-machine statistics**, consolidated from the Consumer and Business Services (CBS) releases for FY 2009/10 to FY 2024/25: statewide revenue and tax, council areas, licences and manufacturers.
 
-**Live site:** _coming soon_ (Vercel project `sa-gaming-machine-stats`)
+**Live site:** [sa-gaming-machine-stats.vercel.app](https://sa-gaming-machine-stats.vercel.app)
 
 [![CI](https://github.com/rNLKJA/South-Australia-Gaming-Machine-Statistics/actions/workflows/ci.yml/badge.svg)](https://github.com/rNLKJA/South-Australia-Gaming-Machine-Statistics/actions/workflows/ci.yml)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
@@ -48,7 +48,7 @@ This is a personal project. It is not affiliated with Consumer and Business Serv
 | Analysis   | Power BI Desktop                        | TypeScript domain modules in `web/src/lib`, unit-tested with Vitest against the workbook's own pivot tables                                                      |
 | Front end  | Power BI report pages                   | Next.js 16 (App Router, static generation), React 19, TypeScript, Tailwind CSS 4, shadcn/ui (Base UI), Recharts, MapLibre GL with OpenFreeMap tiles, next-themes |
 | Geocoding  | –                                       | Photon (komoot, OpenStreetMap), called from a cached server route; no keys or accounts                                                                           |
-| Deployment | –                                       | Vercel (static pages plus one serverless route)                                                                                                                  |
+| Deployment | –                                       | Vercel (static pages plus one serverless route): [sa-gaming-machine-stats.vercel.app](https://sa-gaming-machine-stats.vercel.app)                                |
 
 ## Repository structure
 
@@ -97,6 +97,16 @@ pnpm start -p 3532  # serve the production build
 ```
 
 No environment variables are required. `NEXT_PUBLIC_SITE_URL` (see `web/.env.example`) optionally sets the absolute URL used in social-sharing metadata.
+
+Deploying: the Vercel project `sa-gaming-machine-stats` has `web/` as its root. From `web/`, `vercel deploy --prod` builds and publishes to [sa-gaming-machine-stats.vercel.app](https://sa-gaming-machine-stats.vercel.app). No keys, secrets or database are involved.
+
+## Viewing the records
+
+The site is read-only and has no database: the derived data is about 1.5 MB of JSON that is imported at build time, so every page except the geocoder is pre-rendered static HTML. To look at the records behind any chart:
+
+- **On the live site:** [Downloads](https://sa-gaming-machine-stats.vercel.app/downloads) has eight tidy CSV tables (statewide monthly and annual, licences, manufacturers, concentration, published council areas, crosswalk) plus a read-me with notes and attribution.
+- **In the repository:** `web/src/data/*.json` holds every row the site uses, and `web/public/data/*.geojson` the council and group boundaries (open them in any GeoJSON viewer, such as geojson.io).
+- **At the source:** `original/SA Gaming Statistics.xlsx` is the hand-transcribed workbook the scripts read; its INFO sheet holds the pivot tables the unit tests compare against.
 
 ## How the data is generated
 
