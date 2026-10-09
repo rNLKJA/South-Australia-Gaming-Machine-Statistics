@@ -14,6 +14,9 @@ import {
   YAxis,
 } from "recharts"
 
+import { useElementWidth } from "@/hooks/use-element-width"
+import { thinTicks, ticksThatFit } from "@/lib/ticks"
+
 export type Datum = { key: string; label: string } & Record<string, number | string | null>
 
 export interface SeriesSpec {
@@ -41,6 +44,8 @@ export interface Band {
 }
 
 const TICK = { fill: "var(--chart-axis)", fontSize: 12 }
+/** The y-axis width plus the right margin, in pixels: what is left is the plot width. */
+const Y_AXIS_AND_MARGINS = 64 + 16
 
 export function TrendChart({
   data,
@@ -73,12 +78,24 @@ export function TrendChart({
 }) {
   const fmt = valueFormat ?? ((v: number) => yFormat(v))
   const labelOf = new Map(data.map((d) => [d.key, d.label]))
+  const tickText = (k: string) => (xTickFormat ? xTickFormat(k) : (labelOf.get(k) ?? k))
+  // Evenly spaced ticks that fit the measured width, always keeping the latest period.
+  const [ref, width] = useElementWidth<HTMLDivElement>()
+  const candidates = xTicks ?? data.map((d) => d.key)
+  const longest = Math.max(1, ...candidates.map((k) => tickText(k).length))
+  const ticks = thinTicks(candidates, width ? ticksThatFit(width - Y_AXIS_AND_MARGINS, longest) : 8)
   return (
-    <div role="img" aria-label={ariaLabel} style={{ height }} className="w-full select-none">
+    <div
+      ref={ref}
+      role="img"
+      aria-label={ariaLabel}
+      style={{ height }}
+      className="w-full select-none"
+    >
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
-          margin={{ top: bands.length ? 22 : 8, right: 8, bottom: 0, left: 0 }}
+          margin={{ top: bands.length ? 22 : 8, right: 16, bottom: 0, left: 0 }}
           stackOffset={stackOffset}
           barCategoryGap="18%"
         >
@@ -115,13 +132,12 @@ export function TrendChart({
           ))}
           <XAxis
             dataKey="key"
-            ticks={xTicks}
-            interval={xTicks ? 0 : "preserveStartEnd"}
-            tickFormatter={(k: string) => (xTickFormat ? xTickFormat(k) : (labelOf.get(k) ?? k))}
+            ticks={ticks}
+            interval={0}
+            tickFormatter={tickText}
             tick={TICK}
             tickLine={false}
             axisLine={{ stroke: "var(--chart-axis)" }}
-            minTickGap={8}
           />
           <YAxis
             tickFormatter={(v: number) => yFormat(v)}

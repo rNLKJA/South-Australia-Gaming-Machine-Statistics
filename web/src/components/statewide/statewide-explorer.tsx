@@ -12,7 +12,7 @@ import {
 } from "@/components/charts/trend-chart"
 import { Segmented } from "@/components/common/segmented"
 import { fmtAud, fmtAudCompact, fmtInt, fmtMillions } from "@/lib/format"
-import { fyShort, monthLabel } from "@/lib/fy"
+import { fyAxis, fyOfMonth, fyShort, monthLabel } from "@/lib/fy"
 import type { StatewideMeasure, StatewideYear } from "@/lib/statewide"
 import type { FY, Month } from "@/lib/types"
 
@@ -142,9 +142,8 @@ export function StatewideExplorer({
       { from: "2014-07", to: "2015-06", label: "No release", tone: "gap" },
       { from: "2020-03", to: "2020-06", label: "Closures", tone: "event" },
     ]
-    const ticks = src
-      .filter((r) => r.month.endsWith("-07") && Number(r.month.slice(0, 4)) % 2 === 1)
-      .map((r) => r.month)
+    // A tick at each July (the start of a financial year); the chart thins them to fit.
+    const ticks = src.filter((r) => r.month.endsWith("-07")).map((r) => r.month)
     return { data, series, bands, ticks }
   }, [view, real, annual, annualReal, monthly, monthlyReal, measure, spec, lgaFill, baseFyLabel])
 
@@ -215,11 +214,7 @@ export function StatewideExplorer({
           yFormat={yFormat}
           valueFormat={valueFormat}
           xTicks={ticks}
-          xTickFormat={
-            view === "annual"
-              ? (k) => fyShort(k).replace(/^20/, "’").replace("/", "–")
-              : (k) => k.slice(0, 4)
-          }
+          xTickFormat={view === "annual" ? (k) => fyAxis(k) : (k) => fyAxis(fyOfMonth(k))}
           height={340}
           ariaLabel={`${spec.label} ${view === "annual" ? "by financial year" : "by month"}, FY 2009/10 to FY 2024/25. The table below lists the annual values.`}
         />

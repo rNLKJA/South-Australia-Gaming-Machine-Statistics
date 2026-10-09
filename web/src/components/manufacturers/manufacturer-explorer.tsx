@@ -12,7 +12,7 @@ import {
 } from "@/components/charts/trend-chart"
 import { Segmented } from "@/components/common/segmented"
 import { fmtInt, fmtPct } from "@/lib/format"
-import { fyLabel, fyShort, monthLabel } from "@/lib/fy"
+import { fyAxis, fyLabel, fyOfMonth, monthLabel } from "@/lib/fy"
 
 export interface ShareSeries {
   leaders: string[]
@@ -85,9 +85,8 @@ export function ManufacturerExplorer({
         label: monthLabel(m.month),
         hhi: m.hhi,
       }))
-      const ticks = src.monthly
-        .filter((m) => m.month.endsWith("-07") && Number(m.month.slice(0, 4)) % 2 === 1)
-        .map((m) => m.month)
+      // A tick at each July (the start of a financial year); the chart thins them to fit.
+      const ticks = src.monthly.filter((m) => m.month.endsWith("-07")).map((m) => m.month)
       const bands: Band[] = [{ from: "2023-10", to: "2023-12", label: "Missing", tone: "gap" }]
       return { shareData, hhiData, series, bands, ticks }
     }
@@ -104,10 +103,7 @@ export function ManufacturerExplorer({
     return { shareData, hhiData, series, bands: [] as Band[], ticks: undefined }
   }, [src, period])
 
-  const xFmt =
-    period === "monthly"
-      ? (k: string) => k.slice(0, 4)
-      : (k: string) => fyShort(k).replace(/^20/, "’").replace("/", "–")
+  const xFmt = period === "monthly" ? (k: string) => fyAxis(fyOfMonth(k)) : (k: string) => fyAxis(k)
 
   return (
     <div className="space-y-6">
