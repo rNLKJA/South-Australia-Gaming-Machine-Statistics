@@ -1,0 +1,95 @@
+workbook_name,display_name,abs_lga_2024,relation,geometry,note
+Adelaide,Adelaide,Adelaide,same,yes,
+Adelaide Hills,Adelaide Hills,Adelaide Hills,same,yes,
+Adelaide Plains,Adelaide Plains,Adelaide Plains,same,yes,
+Alexandria,Alexandrina,Alexandrina,spelling,yes,"Typo in the FY 2013/14 CBS release, carried into the workbook (Alexandria for Alexandrina)."
+Alexandrina,Alexandrina,Alexandrina,same,yes,
+Barmera,Berri Barmera,Berri Barmera,fragment,yes,"CBS printed ""Berri, Barmera"" with a comma in some years and the workbook split the one council into two rows."
+Barossa,Barossa,Barossa,same,yes,
+Barunga West,Barunga West,Barunga West,same,yes,
+Berri,Berri Barmera,Berri Barmera,fragment,yes,"CBS printed ""Berri, Barmera"" with a comma in some years and the workbook split the one council into two rows."
+Berri Barmera,Berri Barmera,Berri Barmera,same,yes,
+Burnside,Burnside,Burnside,same,yes,
+Campbelltown,Campbelltown,Campbelltown (SA),same,yes,ABS adds the (SA) suffix to distinguish Campbelltown NSW.
+Carrieton,Orroroo Carrieton,Orroroo Carrieton,fragment,yes,"CBS printed ""Orroroo/Carrieton"" and the workbook split the one council into two rows."
+Ceduna,Ceduna,Ceduna,same,yes,
+Charles Sturt,Charles Sturt,Charles Sturt,same,yes,
+Clare,Clare and Gilbert Valleys,Clare and Gilbert Valleys,fragment,yes,"The workbook split ""Clare & Gilbert Valleys"" into Clare and Gilbert Valleys in FY 2014/15 to FY 2021/22."
+Clare & Gilbert Valleys,Clare and Gilbert Valleys,Clare and Gilbert Valleys,spelling,yes,Ampersand variant.
+Clare and Gilbert Valleys,Clare and Gilbert Valleys,Clare and Gilbert Valleys,same,yes,
+Cleve,Cleve,Cleve,same,yes,
+Coober Pedy,Coober Pedy,Coober Pedy,same,yes,
+Coorong,Coorong,Coorong,same,yes,
+Coorong District,Coorong,Coorong,suffix,yes,Council-type suffix used from FY 2022/23.
+Copper Coast,Copper Coast,Copper Coast,same,yes,
+East Murray,Karoonda East Murray,Karoonda East Murray,fragment,yes,"CBS printed ""Karoonda/East Murray"" and the workbook split the one council into two rows."
+Elliston,Elliston,Elliston,same,yes,
+Flinders Ranges,Flinders Ranges,Flinders Ranges,same,yes,
+Franklin Harbour,Franklin Harbour,Franklin Harbour,same,yes,
+Gawler,Gawler,Gawler,same,yes,
+Gilbert Valleys,Clare and Gilbert Valleys,Clare and Gilbert Valleys,fragment,yes,"The workbook split ""Clare & Gilbert Valleys"" into Clare and Gilbert Valleys in FY 2014/15 to FY 2021/22."
+Goyder,Goyder,Goyder,same,yes,
+Grant,Grant,Grant,same,yes,
+Holdfast Bay,Holdfast Bay,Holdfast Bay,same,yes,
+Kangaroo Island,Kangaroo Island,Kangaroo Island,same,yes,
+Karoonda,Karoonda East Murray,Karoonda East Murray,fragment,yes,"CBS printed ""Karoonda/East Murray"" and the workbook split the one council into two rows."
+Karoonda East Murray,Karoonda East Murray,Karoonda East Murray,same,yes,
+Kimba,Kimba,Kimba,same,yes,
+Kingston,Kingston,Kingston (SA),same,yes,ABS adds the (SA) suffix.
+Kingston District,Kingston,Kingston (SA),suffix,yes,Council-type suffix used from FY 2022/23.
+Le Hunte,Wudinna,Wudinna,renamed,yes,The District Council of Le Hunte is now Wudinna District Council; CBS uses Wudinna from FY 2022/23.
+Light,Light,Light,same,yes,
+Light Regional,Light,Light,suffix,yes,Council-type suffix used from FY 2022/23.
+Lower Eyre Peninsula,Lower Eyre Peninsula,Lower Eyre Peninsula,same,yes,
+Loxton,Loxton Waikerie,Loxton Waikerie,fragment,yes,"CBS printed ""Loxton, Waikerie"" with a comma in some years and the workbook split the one council into two rows."
+Loxton Waikerie,Loxton Waikerie,Loxton Waikerie,same,yes,
+Lucindale,Naracoorte Lucindale,Naracoorte Lucindale,fragment,yes,"CBS printed ""Naracoorte & Lucindale"" and the workbook split the one council into two rows."
+Mallala,Adelaide Plains,Adelaide Plains,renamed,yes,The District Council of Mallala was renamed Adelaide Plains Council; CBS kept the old name until FY 2021/22.
+Marion,Marion,Marion,same,yes,
+Mid Murray,Mid Murray,Mid Murray,same,yes,
+Mitcham,Mitcham,Mitcham,same,yes,
+Mount Barker,Mount Barker,Mount Barker,same,yes,
+Mount Gambier,Mount Gambier,Mount Gambier,same,yes,
+Mount Remarkable,Mount Remarkable,Mount Remarkable,same,yes,
+Murray Bridge,Murray Bridge,Murray Bridge,same,yes,
+Naracoorte,Naracoorte Lucindale,Naracoorte Lucindale,fragment,yes,"CBS printed ""Naracoorte & Lucindale"" and the workbook split the one council into two rows."
+Naracoorte Lucindale,Naracoorte Lucindale,Naracoorte Lucindale,same,yes,
+Northern Areas,Northern Areas,Northern Areas,same,yes,
+Norwood,Norwood Payneham and St Peters,Norwood Payneham and St Peters,fragment,yes,"The workbook split ""Norwood Payneham & St Peters"" into three rows in FY 2013/14 to FY 2021/22."
+Norwood Payneham & St Peters,Norwood Payneham and St Peters,Norwood Payneham and St Peters,spelling,yes,Ampersand variant.
+Onkaparinga,Onkaparinga,Onkaparinga,same,yes,
+Orroroo,Orroroo Carrieton,Orroroo Carrieton,fragment,yes,"CBS printed ""Orroroo/Carrieton"" and the workbook split the one council into two rows."
+Paringa,Renmark Paringa,Renmark Paringa,fragment,yes,"CBS printed ""Renmark, Paringa"" with a comma in some years and the workbook split the one council into two rows."
+Payneham,Norwood Payneham and St Peters,Norwood Payneham and St Peters,fragment,yes,"The workbook split ""Norwood Payneham & St Peters"" into three rows in FY 2013/14 to FY 2021/22."
+Peterborough,Peterborough,Peterborough,same,yes,
+Playford,Playford,Playford,same,yes,
+Port Adelaide Enfield,Port Adelaide Enfield,Port Adelaide Enfield,same,yes,
+Port Augusta,Port Augusta,Port Augusta,same,yes,
+Port Lincoln,Port Lincoln,Port Lincoln,same,yes,
+Port Pirie,Port Pirie,Port Pirie,same,yes,
+Prospect,Prospect,Prospect,same,yes,
+Renmark,Renmark Paringa,Renmark Paringa,fragment,yes,"CBS printed ""Renmark, Paringa"" with a comma in some years and the workbook split the one council into two rows."
+Renmark Paringa,Renmark Paringa,Renmark Paringa,same,yes,
+Robe,Robe,Robe,same,yes,
+Roxby Downs,Roxby Downs,Roxby Downs,same,yes,
+Salisbury,Salisbury,Salisbury,same,yes,
+Southern Mallee,Southern Mallee,Southern Mallee,same,yes,
+St Peters,Norwood Payneham and St Peters,Norwood Payneham and St Peters,fragment,yes,"The workbook split ""Norwood Payneham & St Peters"" into three rows in FY 2013/14 to FY 2021/22."
+Streaky Bay,Streaky Bay,Streaky Bay,same,yes,
+Tatiara,Tatiara,Tatiara,same,yes,
+Tea Tree Gully,Tea Tree Gully,Tea Tree Gully,same,yes,
+Tumby Bay,Tumby Bay,Tumby Bay,same,yes,
+Unincorp Far North,Unincorporated Far North,Unincorporated SA,part,yes,CBS reports the unincorporated area in two parts; ABS has one Unincorporated SA area. The map draws it with the Far North part.
+Unincorp West Coast,Unincorporated West Coast,Unincorporated SA,part,no,CBS reports the unincorporated area in two parts; ABS has one Unincorporated SA area. The West Coast part has no separate boundary.
+Unley,Unley,Unley,same,yes,
+Victor Harbor,Victor Harbor,Victor Harbor,same,yes,
+Waikerie,Loxton Waikerie,Loxton Waikerie,fragment,yes,"CBS printed ""Loxton, Waikerie"" with a comma in some years and the workbook split the one council into two rows."
+Wakefield Region,Wakefield,Wakefield,suffix,yes,Council-type suffix variant.
+Wakefield Regional,Wakefield,Wakefield,suffix,yes,Council-type suffix variant.
+Walkerville,Walkerville,Walkerville,same,yes,
+Wattle Range,Wattle Range,Wattle Range,same,yes,
+West Torrens,West Torrens,West Torrens,same,yes,
+Whyalla,Whyalla,Whyalla,same,yes,
+Wudinna,Wudinna,Wudinna,same,yes,
+Yankalilla,Yankalilla,Yankalilla,same,yes,
+Yorke Peninsula,Yorke Peninsula,Yorke Peninsula,same,yes,
