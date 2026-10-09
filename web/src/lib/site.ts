@@ -26,6 +26,13 @@ export const nav = [
     description: "Entitlements and live machines by category",
   },
   { href: "/manufacturers", label: "Manufacturers", description: "Market share and concentration" },
+  {
+    href: "/analysis",
+    label: "Analysis",
+    description: "Trends, councils and concentration with intervals",
+  },
+  { href: "/ask", label: "Ask", description: "Read-only SQL, optional AI with your own key" },
+  { href: "/methods", label: "Methods", description: "Methods, decision records and model cards" },
   { href: "/data-quality", label: "Data quality", description: "Checks, gaps and corrections" },
   { href: "/downloads", label: "Downloads", description: "Tidy CSVs with attribution" },
 ] as const

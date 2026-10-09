@@ -27,15 +27,15 @@ export function SiteHeader() {
             <span className="truncate font-serif text-[1.05rem] font-semibold tracking-tight sm:text-lg">
               {site.name}
             </span>
-            <span className="kicker mt-1 hidden text-[0.65rem] text-muted-foreground sm:block">
+            <span className="kicker mt-1 hidden text-[0.65rem] whitespace-nowrap text-muted-foreground sm:block xl:hidden 2xl:block">
               South Australia · FY 2009/10 – 2024/25
             </span>
           </span>
         </Link>
-        <nav aria-label="Sections" className="ml-auto hidden lg:block">
+        <nav aria-label="Sections" className="ml-auto hidden xl:block">
           <NavLinks className="gap-0.5" />
         </nav>
-        <div className="ml-auto flex items-center gap-1 lg:ml-2">
+        <div className="ml-auto flex items-center gap-1 xl:ml-2">
           <ThemeToggle />
           <a
             href={site.repo}
