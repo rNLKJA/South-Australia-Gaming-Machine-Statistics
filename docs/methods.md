@@ -17,16 +17,16 @@ The Analysis pages add:
 - **Trend and seasonality.** STL (seasonal-trend decomposition by LOESS) with robustness weights, run separately on the two unbroken parts of the series because FY 2014/15 is missing ([DR-003](decisions/DR-003-fy-2014-15-gap.md)).
 - **The 2020 closures.** An interrupted time series (segmented regression with calendar-month effects) on July 2015 to June 2025, with Newey–West standard errors, plus paired comparisons of the same calendar months in two financial years.
 - **NGR per machine.** Annual ratios with percentile bootstrap intervals over the year's months.
-- **Councils.** Each area's NGR per machine relative to the state rate of the same year, funnel plots with control limits scaled by year-to-year variation, and each area's typical ratio with a t interval across years.
-- **Market concentration.** Annual Herfindahl–Hirschman index with bootstrap intervals, and a broken-stick change-point fit with a moving-block bootstrap.
+- **Councils.** Each area's NGR per machine relative to the state rate of the same year, funnel plots with control limits scaled by year-to-year variation, and each area's typical ratio with a t interval across years, widened for the dependence between an area's consecutive years.
+- **Market concentration.** Annual Herfindahl–Hirschman index with bootstrap intervals, and a broken-stick change-point fit with a moving-block bootstrap whose block length is chosen from the residuals' autocorrelation.
 
 The model choices are recorded in [DR-005](decisions/DR-005-analysis-design.md).
 
 ## Evaluation design
 
-Every statistical helper in `web/src/lib/stats/` is unit-tested against reference values produced by scipy, statsmodels and numpy (`scripts/stats_reference.py`) and by R 4.6 (`scripts/stl_reference.R`): distributions to about 1e-12, Newey–West standard errors to 1e-9, and STL components to eight significant figures. The analysis modules are tested for consistency with the published figures: the bootstrap point estimates equal the Statewide and Manufacturers pages' figures exactly.
+Every statistical helper in `web/src/lib/stats/` is unit-tested against reference values produced by scipy, statsmodels, arch and numpy (`scripts/stats_reference.py`) and by R 4.6 (`scripts/stl_reference.R`): distributions to about 1e-12, Newey–West standard errors to 1e-9, and STL components to eight significant figures. The analysis modules are tested for consistency with the published figures: the bootstrap point estimates equal the Statewide and Manufacturers pages' figures exactly.
 
-The text-to-SQL feature has its own benchmark: 23 fixed questions (20 answerable, 3 that should be declined) with reference SQL. Each reference answer is checked in the unit tests against the figure the site computes in TypeScript. A model passes a question when its query returns the reference values (execution accuracy); accuracy is reported with Wilson intervals and two runs are compared question by question with McNemar's exact test and a paired bootstrap ([DR-004](decisions/DR-004-browser-text-to-sql.md)). The [model card](model-card.md) covers the statistical models and the text-to-SQL feature.
+The text-to-SQL feature has its own benchmark: 28 fixed questions (20 answerable, 8 that should be declined) with reference SQL. Each reference answer is checked in the unit tests against the figure the site computes in TypeScript. A model passes a question when its query returns the reference values (execution accuracy). The prompt's rule for declining names no examples, so declines measure recognition rather than instruction-following; the one should-decline question whose scope the prompt states is reported separately. A single run gets Wilson intervals. Because model output varies between calls, the set can be repeated, and then each question scores its pass rate with a bootstrap interval over questions. Two runs are compared question by question with a paired bootstrap, and with McNemar's exact test when both are single runs ([DR-004](decisions/DR-004-browser-text-to-sql.md)). The [model card](model-card.md) covers the statistical models and the text-to-SQL feature.
 
 ## Uncertainty conventions
 
@@ -45,8 +45,9 @@ The text-to-SQL feature has its own benchmark: 23 fixed questions (20 answerable
 ## Limitations
 
 - **Causality.** The interrupted time series describes a break in the series; it can't separate the closures from income support, closed alternatives, border closures and inflation in the same months.
-- **Short runs.** STL on July 2009 to June 2014 has five cycles. The text-to-SQL benchmark has 23 questions, so its intervals are wide.
+- **Short runs.** STL on July 2009 to June 2014 has five cycles. The text-to-SQL benchmark has 28 questions, so its intervals are wide.
 - **Autocorrelation.** Residuals of the interrupted time series keep a lag-1 autocorrelation of about 0.4, and the bootstrap over months within a year ignores autocorrelation altogether.
+- **Independence assumed in places.** The paired calendar-month comparisons treat their twelve monthly differences as independent, although neighbouring months share trend and shocks, so their intervals are probably too narrow. The council ratios allow for dependence between consecutive years with one pooled lag-1 autocorrelation (0.43), estimated from short series and so more likely too small than too large. The moving-block bootstrap for the concentration break assumes stationary residuals.
 - **Group changes.** Councils that move between CBS groups have shorter histories in the council analysis.
 - **Not covered.** Venue-level data, the Adelaide Casino's revenue, and anything about who gambles or how much harm results. Nothing here measures harm.
 

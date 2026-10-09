@@ -17,10 +17,10 @@ Eight tidy tables derived from Consumer and Business Services (CBS) gaming machi
 
 ## Sources and licence
 
-- **Gaming statistics:** CBS, Government of South Australia, gaming statistics pages. The PDFs were transcribed by hand into `original/SA Gaming Statistics.xlsx` in September 2025. Treat CBS as authoritative.
+- **Gaming statistics:** CBS, Government of South Australia, gaming statistics pages. The PDFs were transcribed by hand into `original/SA Gaming Statistics.xlsx` in September 2025. Treat CBS as authoritative. The PDFs carry no licence statement, and I could not confirm CBS's reuse terms (its website blocks automated access). Many South Australian Government websites publish under CC BY 4.0 unless otherwise noted, but I have not confirmed that this covers the gaming statistics, so treat the figures as © Government of South Australia, attribute them to CBS, and check CBS's copyright statement before reusing them.
 - **Council boundaries:** Australian Bureau of Statistics, ASGS Edition 3 Local Government Areas 2024, CC BY 4.0.
 - **Consumer price index:** ABS, All groups, Adelaide, quarterly, CC BY 4.0.
-- **Derived tables and code:** MIT licence. The site is not affiliated with or endorsed by CBS.
+- **Code and derived tables:** the code (including the transformations that build the tables) is under the MIT licence. The figures in the derived tables remain CBS's and ABS's: their reuse is subject to the source terms above, with attribution. The site is not affiliated with or endorsed by CBS.
 
 ## Collection and processing
 

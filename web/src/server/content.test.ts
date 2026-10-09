@@ -68,31 +68,64 @@ describe("docs rendered on /methods", () => {
     expect(text).not.toContain("—")
   })
 
-  it("quotes the analysis results the pages compute (no stale numbers in the docs)", () => {
-    const t = trendsView()
-    const its = t.its[0]
-    const m = (x: number) => signed(x, (v) => fmtMillions(v, 1))
-    const level = `${m(its.level.estimate)} a month (95% CI ${m(its.level.lower)} to ${m(its.level.upper)})`
-    const dr5 = listDecisions().find((d) => d.id === "DR-005")!.body
-    const card = readDoc("model-card")
-    expect(dr5).toContain(level)
-    expect(card).toContain(level)
-    expect(fmtInterval(1, 0, 2, String)).toBe("1 (95% CI 0 to 2)")
-    const slope = `${m(its.slopePerYear.estimate)} a year (${m(its.slopePerYear.lower)} to ${m(its.slopePerYear.upper)})`
-    expect(dr5).toContain(slope)
-    const c = councilsView()
-    const scaling = `${fmtDecimal(c.scaling.slope.estimate)} (95% CI ${fmtDecimal(c.scaling.slope.lower)} to ${fmtDecimal(c.scaling.slope.upper)})`
-    expect(dr5).toContain(scaling)
-    expect(card).toContain(`c = ${c.scale.c.toFixed(2)}`)
-    const latest = c.funnels.at(-1)!
-    expect(dr5).toContain(`${latest.outside95.count} of ${latest.outside95.n} areas`)
-    const k = concentrationView()
-    const [y, mo] = k.breaks[0].tau.split("-")
-    const breakText = `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(mo) - 1]} ${y}`
-    expect(dr5).toContain(breakText)
-    expect(card).toContain(breakText)
-    expect(monthLabel(k.breaks[0].tau)).toBe("Dec 2015")
-  })
+  // builds every Analysis view, including the block-length sensitivity bootstraps: give it time
+  it(
+    "quotes the analysis results the pages compute (no stale numbers in the docs)",
+    { timeout: 120_000 },
+    () => {
+      const t = trendsView()
+      const its = t.its[0]
+      const m = (x: number) => signed(x, (v) => fmtMillions(v, 1))
+      const level = `${m(its.level.estimate)} a month (95% CI ${m(its.level.lower)} to ${m(its.level.upper)})`
+      const dr5 = listDecisions().find((d) => d.id === "DR-005")!.body
+      const card = readDoc("model-card")
+      expect(dr5).toContain(level)
+      expect(card).toContain(level)
+      expect(fmtInterval(1, 0, 2, String)).toBe("1 (95% CI 0 to 2)")
+      const slope = `${m(its.slopePerYear.estimate)} a year (${m(its.slopePerYear.lower)} to ${m(its.slopePerYear.upper)})`
+      expect(dr5).toContain(slope)
+      const c = councilsView()
+      const scaling = `${fmtDecimal(c.scaling.slope.estimate)} (95% CI ${fmtDecimal(c.scaling.slope.lower)} to ${fmtDecimal(c.scaling.slope.upper)})`
+      expect(dr5).toContain(scaling)
+      expect(card).toContain(`c = ${c.scale.c.toFixed(2)}`)
+      const latest = c.funnels.at(-1)!
+      expect(dr5).toContain(`${latest.outside95.count} of ${latest.outside95.n} areas`)
+      const k = concentrationView()
+      const [y, mo] = k.breaks[0].tau.split("-")
+      const breakText = `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(mo) - 1]} ${y}`
+      expect(dr5).toContain(breakText)
+      expect(card).toContain(breakText)
+      expect(monthLabel(k.breaks[0].tau)).toBe("Dec 2015")
+      const months = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ]
+      const long = (m: string) => `${months[Number(m.split("-")[1]) - 1]} ${m.split("-")[0]}`
+      const breakCi = `${breakText} (95% CI ${long(k.breaks[0].tauLower)} to ${long(k.breaks[0].tauUpper)})`
+      expect(dr5).toContain(breakCi)
+      expect(card).toContain(breakCi)
+      expect(dr5).toContain(`(${k.variants[0].breakpoint.blockLength} months)`)
+      // the council counts quoted in DR-005 and the model card
+      const n = (d: string) => c.persistent.filter((p) => p.direction === d).length
+      const counts = `${n("above")} above, ${n("below")} below and ${n("unclear")} unclear`
+      expect(dr5).toContain(counts)
+      expect(card).toContain(
+        `${n("above")} are consistently above the state rate, ${n("below")} below and ${n("unclear")} unclear`
+      )
+      expect(dr5).toContain(`autocorrelation of the log ratios is ${c.dependence.rho.toFixed(2)}`)
+      expect(dr5).toContain(`by ${c.dependence.inflation.toFixed(2)}`)
+    }
+  )
 
   it("maps links between docs to site routes", () => {
     expect(docHref("decisions/DR-002-stock-vs-flow-aggregation.md")).toBe(

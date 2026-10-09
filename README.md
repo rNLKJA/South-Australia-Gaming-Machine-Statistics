@@ -57,7 +57,7 @@ Added in the 2026 upgrade:
 | `/analysis/councils`                        | Funnel plots against the state rate and each area's typical ratio with a 95% interval                              |
 | `/analysis/concentration`                   | Annual HHI with bootstrap intervals and the broken-stick change point                                              |
 | `/ask`                                      | Read-only SQL over the tidy tables in your browser; optional AI drafting with your own key                         |
-| `/ask/evaluation`                           | The text-to-SQL evaluation harness: 23 questions, execution accuracy with Wilson intervals, paired comparisons     |
+| `/ask/evaluation`                           | The text-to-SQL evaluation harness: 28 questions, optional repeats, accuracy with intervals, paired comparisons    |
 | `/ai-log`                                   | The AI audit log for this browser, with JSON and CSV export                                                        |
 | `/methods`                                  | Methods, the AI use statement and links to the decision records                                                    |
 | `/methods/decisions/[record]`               | Decision records DR-001 to DR-005                                                                                  |
@@ -144,7 +144,7 @@ The site works fully without AI. On [Ask the data](https://sa-gaming-machine-sta
 - **Your key, your browser.** Open **AI settings**, choose Anthropic (default model Claude Haiku 4.5, with Claude Sonnet 5.5 as an option) or OpenAI (any model id, default `gpt-5-mini`), and paste a key. It is kept in `sessionStorage` (gone when the tab closes) unless you tick "Remember on this device" (`localStorage`); **Forget key** removes it. Requests go straight from the browser to the provider. The key never reaches this site's server, is never logged and is never committed; the content security policy only allows connections to this site, the map tiles and the two providers' APIs.
 - **You decide what runs.** The drafted SQL is shown and editable. Every query passes an allow-list (one SELECT or WITH statement over the eight tables, listed functions only, no recursion), runs on a database that refuses writes, and is stopped after five seconds. Model text is labelled **AI-generated** and results from a model's query **AI-assisted**.
 - **Audit log.** Every AI call is appended to an IndexedDB log in your browser: id, time, feature, provider, model, input (without the key), output, latency, token usage and your decision (accepted, edited or rejected). View and export it as JSON or CSV at [/ai-log](https://sa-gaming-machine-stats.vercel.app/ai-log).
-- **Evaluation.** [/ask/evaluation](https://sa-gaming-machine-stats.vercel.app/ask/evaluation) runs 23 fixed questions (3 of which should be declined) through the same guard and database and scores execution accuracy against reference queries that the unit tests check against the site's own figures. It reports Wilson intervals by category, compares two runs with McNemar's test and a paired bootstrap, and exports the results. No accuracy figure is published here: there is no budget to run it, so it runs only with a visitor's key.
+- **Evaluation.** [/ask/evaluation](https://sa-gaming-machine-stats.vercel.app/ask/evaluation) runs 28 fixed questions (8 of which should be declined; the prompt names no examples of them) through the same guard and database and scores execution accuracy against reference queries that the unit tests check against the site's own figures. It can repeat the set three times to show run-to-run variation, reports intervals by category (Wilson for a single run, a bootstrap over questions with repeats), compares two runs question by question, and exports the results. No accuracy figure is published here: there is no budget to run it, so it runs only with a visitor's key.
 
 What the AI does and never does is set out in the AI use statement on [Methods](https://sa-gaming-machine-stats.vercel.app/methods#ai-use-statement), which is informed by the Australian Government's policy for the responsible use of AI in government, the EU AI Act's transparency principles and the NIST AI Risk Management Framework (it does not claim compliance with any of them).
 
@@ -203,7 +203,7 @@ The CSV downloads are not stored: they are generated at build time by `web/src/l
 - **Council boundaries:** Australian Bureau of Statistics, ASGS Edition 3 Local Government Areas 2024, CC BY 4.0.
 - **Consumer Price Index:** Australian Bureau of Statistics, CC BY 4.0.
 - **Basemap:** [OpenFreeMap](https://openfreemap.org/), © OpenMapTiles, © OpenStreetMap contributors. If the tiles can't load, the map falls back to the bundled council boundaries.
-- **Code, consolidation and derived tables:** MIT ([LICENSE](LICENSE)).
+- **Code:** MIT ([LICENSE](LICENSE)), including the code that consolidates and derives the tables. The figures themselves remain CBS's and the ABS's; I could not confirm CBS's reuse terms, so attribute CBS and check its copyright statement before reusing them (see the [data card](docs/data-card.md)).
 
 ## Provenance
 
