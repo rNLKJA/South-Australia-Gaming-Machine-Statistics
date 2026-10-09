@@ -136,7 +136,7 @@ The CSV downloads are not stored: they are generated at build time by `web/src/l
 - **Council boundaries:** Australian Bureau of Statistics, ASGS Edition 3 Local Government Areas 2024, CC BY 4.0.
 - **Consumer Price Index:** Australian Bureau of Statistics, CC BY 4.0.
 - **Basemap:** [OpenFreeMap](https://openfreemap.org/), © OpenMapTiles, © OpenStreetMap contributors. If the tiles can't load, the map falls back to the bundled council boundaries.
-- **Code, consolidation and derived tables:** MIT ([LICENSE](LICENSE)).
+- **Code:** MIT ([LICENSE](LICENSE)), including the code that consolidates and derives the tables. The figures themselves remain CBS's and the ABS's; I could not confirm CBS's reuse terms, so attribute CBS and check its copyright statement before reusing them.
 
 ## Provenance
 
