@@ -5,3 +5,4 @@ public/
 src/data/
 next-env.d.ts
 AGENTS.md
+src/lib/stats/__fixtures__/
