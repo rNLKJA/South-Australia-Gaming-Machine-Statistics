@@ -4,7 +4,14 @@ import { cpi, lgaUnits, manufacturers, statewide } from "../data"
 import { fyRange, monthsOfFy } from "../fy"
 import { DEFAULT_SEED } from "../stats/rng"
 import { concentrationVariant, monthFromIndex } from "./concentration"
-import { areaYears, funnelYears, persistentRatios, scalingCheck, yearToYearScale } from "./councils"
+import {
+  areaYears,
+  funnelYears,
+  persistentRatios,
+  scalingCheck,
+  serialDependence,
+  yearToYearScale,
+} from "./councils"
 import {
   interruptedTimeSeries,
   ITS_SPECS,
@@ -72,11 +79,13 @@ export function trendsView() {
 
 function buildCouncils() {
   const rows = areaYears(lgaUnits)
+  const dependence = serialDependence(rows)
   return {
     scale: yearToYearScale(rows),
     scaling: scalingCheck(rows),
     funnels: funnelYears(rows),
-    persistent: persistentRatios(rows),
+    dependence,
+    persistent: persistentRatios(rows, 3, dependence.inflation),
   }
 }
 
@@ -87,7 +96,11 @@ export function councilsView() {
 
 function buildConcentration() {
   const variants = [
-    concentrationVariant(manufacturers, false, { B: 1000, seed: DEFAULT_SEED }),
+    concentrationVariant(manufacturers, false, {
+      B: 1000,
+      seed: DEFAULT_SEED,
+      sensitivityBlocks: [6, 12, 24],
+    }),
     concentrationVariant(manufacturers, true, { B: 1000, seed: DEFAULT_SEED }),
   ]
   return {

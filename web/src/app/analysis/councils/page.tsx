@@ -25,6 +25,9 @@ export default function CouncilAnalysisPage() {
   const above = v.persistent.filter((p) => p.direction === "above")
   const below = v.persistent.filter((p) => p.direction === "below")
   const unclear = v.persistent.filter((p) => p.direction === "unclear")
+  const aboveIndependent = v.persistent.filter((p) => p.directionIndependent === "above")
+  const belowIndependent = v.persistent.filter((p) => p.directionIndependent === "below")
+  const dep = v.dependence
   const smallest = [...latest.points].sort((a, b) => a.machines - b.machines)[0]
 
   return (
@@ -65,7 +68,7 @@ export default function CouncilAnalysisPage() {
         <Stat
           label="Areas consistently above or below"
           value={`${above.length} / ${below.length}`}
-          detail={`of ${v.persistent.length} areas with three or more years; ${unclear.length} unclear`}
+          detail={`of ${v.persistent.length} areas with three or more years; ${unclear.length} unclear (${aboveIndependent.length} / ${belowIndependent.length} if years were independent)`}
         />
       </section>
 
@@ -135,6 +138,15 @@ export default function CouncilAnalysisPage() {
             Terracotta: consistently above the state rate; teal: consistently below; grey: the
             interval includes 1.
           </p>
+          <p>
+            An area’s years are not independent: a council above the state rate one year tends to be
+            above it the next. The pooled lag-1 autocorrelation of the log ratios within areas is{" "}
+            {fmtDecimal(dep.rho)} ({dep.pairs} pairs of consecutive years in {dep.areas} areas with
+            four or more years), so every interval’s standard error is widened by √((1 + ρ) / (1 −
+            ρ)) = {dep.inflation.toFixed(2)}. Treating the years as independent would call{" "}
+            {aboveIndependent.length} areas above and {belowIndependent.length} below instead of{" "}
+            {above.length} and {below.length}.
+          </p>
         </SectionHeading>
         <RatioForest rows={v.persistent} />
         <MethodNote>
@@ -142,7 +154,9 @@ export default function CouncilAnalysisPage() {
           years, statewide policy), so the interval reflects the area’s own year-to-year variation.
           A combined group is one unit for as long as its membership is unchanged; when CBS changes
           a group, the new composition starts a new row. With three to eleven years per area, the t
-          interval is used rather than a bootstrap. See{" "}
+          interval is used rather than a bootstrap. The widening uses the large-sample AR(1) factor
+          and one pooled ρ for every area; the estimate from short series is biased towards zero, so
+          the adjustment is more likely too small than too large. See{" "}
           <Link href="/methods/decisions/DR-001-combined-lga-groups" className="link">
             DR-001
           </Link>{" "}

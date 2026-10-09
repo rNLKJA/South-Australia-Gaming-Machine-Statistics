@@ -171,7 +171,9 @@ export default function TrendsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead scope="col">Specification</TableHead>
+                <TableHead scope="col" className="min-w-[13rem]">
+                  Specification
+                </TableHead>
                 <TableHead scope="col" className="text-right">
                   Months
                 </TableHead>
@@ -196,19 +198,13 @@ export default function TrendsPage() {
                   fmtInterval(e.estimate, e.lower, e.upper, (x) => signed(x, f))
                 return (
                   <TableRow key={r.spec.id}>
-                    <TableHead scope="row" className="font-medium whitespace-normal">
+                    <TableHead scope="row" className="min-w-[13rem] font-medium whitespace-normal">
                       {r.spec.label}
                     </TableHead>
                     <TableCell className="tabular text-right">{r.n}</TableCell>
-                    <TableCell className="tabular text-right whitespace-normal">
-                      {ci(r.level)}
-                    </TableCell>
-                    <TableCell className="tabular text-right whitespace-normal">
-                      {ci(r.slopePerYear)}
-                    </TableCell>
-                    <TableCell className="tabular text-right whitespace-normal">
-                      {ci(r.gapAtEnd)}
-                    </TableCell>
+                    <TableCell className="tabular text-right">{ci(r.level)}</TableCell>
+                    <TableCell className="tabular text-right">{ci(r.slopePerYear)}</TableCell>
+                    <TableCell className="tabular text-right">{ci(r.gapAtEnd)}</TableCell>
                     <TableCell className="tabular text-right">
                       {r.residualAcf1.toFixed(2)}
                     </TableCell>
@@ -270,7 +266,9 @@ export default function TrendsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead scope="col">Comparison</TableHead>
+                <TableHead scope="col" className="min-w-[13rem]">
+                  Comparison
+                </TableHead>
                 <TableHead scope="col" className="text-right">
                   Before (mean)
                 </TableHead>
@@ -298,7 +296,7 @@ export default function TrendsPage() {
                 const s = p.summary
                 return (
                   <TableRow key={p.id}>
-                    <TableHead scope="row" className="font-medium whitespace-normal">
+                    <TableHead scope="row" className="min-w-[13rem] font-medium whitespace-normal">
                       {p.label}
                       <span className="block text-xs font-normal text-muted-foreground">
                         {fyLabel(p.before)} → {fyLabel(p.after)}, n = {s.n} months,{" "}
@@ -307,10 +305,10 @@ export default function TrendsPage() {
                     </TableHead>
                     <TableCell className="tabular text-right">{f(p.beforeMean)}</TableCell>
                     <TableCell className="tabular text-right">{f(p.afterMean)}</TableCell>
-                    <TableCell className="tabular text-right whitespace-normal">
+                    <TableCell className="tabular text-right">
                       {fmtInterval(s.t.estimate, s.t.lower, s.t.upper, (x) => signed(x, f))}
                     </TableCell>
-                    <TableCell className="tabular text-right whitespace-normal">
+                    <TableCell className="tabular text-right">
                       {signed(s.bootstrap.lower, f)} to {signed(s.bootstrap.upper, f)}
                     </TableCell>
                     <TableCell className="tabular text-right">{s.dz.toFixed(2)}</TableCell>
@@ -323,7 +321,10 @@ export default function TrendsPage() {
           <MethodNote inCard>
             d<sub>z</sub> is the mean paired difference divided by the standard deviation of the
             differences. With only twelve pairs a percentile bootstrap interval tends to be a little
-            too narrow, which is why the t interval is shown first.
+            too narrow, which is why the t interval is shown first. Both intervals and the p-value
+            treat the twelve monthly differences as independent; neighbouring months are correlated
+            (the same trend and the same shocks), so the intervals are probably somewhat too narrow.
+            Read them as a description of the twelve pairs, not as a precise test.
           </MethodNote>
         </div>
       </section>

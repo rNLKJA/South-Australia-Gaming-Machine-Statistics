@@ -1,4 +1,5 @@
 import { movingBlockIndices, summariseReplicates, type BootstrapResult } from "./bootstrap"
+import { autocorrelation, optimalBlockLength } from "./dependence"
 import { invert } from "./ols"
 import { DEFAULT_SEED, mulberry32 } from "./rng"
 
@@ -6,7 +7,10 @@ import { DEFAULT_SEED, mulberry32 } from "./rng"
  * Broken-stick (continuous piecewise-linear) regression with one unknown break:
  * y = a + b·t + d·(t − τ)₊ + e. The break τ is found by least squares over a grid of the observed
  * times; uncertainty for τ and the slopes comes from a moving-block bootstrap of the residuals,
- * which keeps their autocorrelation (the break is re-estimated in every resample).
+ * which keeps their autocorrelation (the break is re-estimated in every resample). By default the
+ * block length is chosen from the residuals themselves (Politis and White's automatic rule), because
+ * a fixed rule of thumb such as n^(1/3) is far too short for a slowly moving series and gives an
+ * interval that is too narrow.
  */
 
 export interface HingeFit {
@@ -96,7 +100,16 @@ export interface HingeBootstrap {
   slopeAfter: BootstrapResult
   slopeChange: BootstrapResult
   blockLength: number
+  /** "auto": Politis–White on the residuals (circular-block estimate, rounded); "fixed": given. */
+  blockRule: "auto" | "fixed"
+  /** Residual autocorrelation at lags 1, 3, 6 and 12, which the block length has to respect. */
+  residualAcf: { lag: number; acf: number }[]
   minSegment: number
+}
+
+/** The automatic block length for a residual series: Politis–White (circular), rounded, ≥ 2. */
+export function autoBlockLength(resid: readonly number[]): number {
+  return Math.max(2, Math.round(optimalBlockLength(resid).circular))
 }
 
 export function bootstrapHinge(
@@ -105,19 +118,21 @@ export function bootstrapHinge(
   {
     B = 1000,
     seed = DEFAULT_SEED,
-    blockLength = Math.max(2, Math.round(Math.cbrt(t.length))),
+    blockLength: blockOption = "auto",
     minSegment = 12,
     confidence = 0.95,
   }: {
     B?: number
     seed?: number
-    blockLength?: number
+    /** Block length in observations, or "auto" for the Politis–White choice on the residuals. */
+    blockLength?: number | "auto"
     minSegment?: number
     confidence?: number
   } = {}
 ): HingeBootstrap {
   const fit = fitHinge(t, y, minSegment)
   const resid = y.map((v, i) => v - fit.fitted[i])
+  const blockLength = blockOption === "auto" ? autoBlockLength(resid) : blockOption
   const rng = mulberry32(seed)
   const taus: number[] = []
   const before: number[] = []
@@ -139,6 +154,10 @@ export function bootstrapHinge(
     slopeAfter: summariseReplicates(fit.slopeAfter, after, B, seed, confidence),
     slopeChange: summariseReplicates(fit.slopeAfter - fit.slopeBefore, change, B, seed, confidence),
     blockLength,
+    blockRule: blockOption === "auto" ? "auto" : "fixed",
+    residualAcf: [1, 3, 6, 12]
+      .filter((lag) => lag < resid.length)
+      .map((lag) => ({ lag, acf: autocorrelation(resid, lag) })),
     minSegment,
   }
 }

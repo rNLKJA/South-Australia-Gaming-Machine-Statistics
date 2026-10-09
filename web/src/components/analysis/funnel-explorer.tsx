@@ -14,7 +14,7 @@ import {
 } from "recharts"
 
 import { Segmented } from "@/components/common/segmented"
-import { fmtAud, fmtInt, fmtPct } from "@/lib/format"
+import { fmtAud, fmtInt, fmtP, fmtPct } from "@/lib/format"
 import { fyLabel, fyShort } from "@/lib/fy"
 import type { FunnelZone } from "@/lib/stats/funnel"
 
@@ -41,7 +41,7 @@ export interface FunnelYearView {
   }[]
   outside: Record<
     "noise" | "overdispersed",
-    { count: number; n: number; estimate: number; lower: number; upper: number }
+    { count: number; n: number; share: number; expected: number; tailP: number }
   >
 }
 
@@ -266,11 +266,16 @@ export function FunnelExplorer({ years, c }: { years: FunnelYearView[]; c: numbe
         <strong className="text-foreground">
           {out.count} of {out.n}
         </strong>{" "}
-        areas ({fmtPct(out.estimate, 0)}, Wilson 95% CI {fmtPct(out.lower, 0)} to{" "}
-        {fmtPct(out.upper, 0)}) fall outside the 95% limits in {fyLabel(year.fy)}; about 5% would if
-        every area shared the state rate and the variance model held. Diamonds are combined CBS
-        groups. Scale: c = {c.toFixed(2)}; {fyShort(year.fy)} over-dispersion φ ={" "}
-        {year.phi.toFixed(1)}.
+        areas ({fmtPct(out.share, 0)}) fall outside the 95% limits in {fyLabel(year.fy)}. If every
+        area shared the state rate and the variance model held, about {out.expected.toFixed(1)} (5%)
+        would by chance; {out.count} or more would happen with probability {fmtP(out.tailP)}{" "}
+        (binomial, areas treated as independent).{" "}
+        {kind === "overdispersed"
+          ? "These limits are fitted to the same year’s spread, so the comparison is approximate. "
+          : ""}
+        The areas are every published area, not a sample, so the count gets no confidence interval.
+        Diamonds are combined CBS groups. Scale: c = {c.toFixed(2)}; {fyShort(year.fy)}{" "}
+        over-dispersion φ = {year.phi.toFixed(1)}.
       </p>
     </div>
   )

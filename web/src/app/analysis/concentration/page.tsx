@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table"
 import { allMonths } from "@/lib/analysis/concentration"
 import { concentrationView, DEFAULT_SEED } from "@/lib/analysis/view"
-import { fmtInt } from "@/lib/format"
+import { fmtInt, signed } from "@/lib/format"
 import { fyLabel, monthLabel } from "@/lib/fy"
 
 export const metadata: Metadata = {
@@ -28,6 +28,10 @@ export const metadata: Metadata = {
 
 const triple = (e: { estimate: number; lower: number; upper: number }, scale = 1) =>
   [e.estimate * scale, e.lower * scale, e.upper * scale] as [number, number, number]
+
+/** "−224 (−247 to −201)" with typographic minus signs. */
+const perYear = ([e, lo, hi]: [number, number, number]) =>
+  `${signed(e, (x) => fmtInt(x))} (${signed(lo, (x) => fmtInt(x))} to ${signed(hi, (x) => fmtInt(x))})`
 
 export default function ConcentrationPage() {
   const v = concentrationView()
@@ -60,10 +64,22 @@ export default function ConcentrationPage() {
             The model is two straight lines that meet at an unknown month: HHI = a + b · month + d ·
             (month − break)₊. The break is the month that minimises the squared error, with at least{" "}
             {b.minSegment} months on each side. To put an interval on the break, the residuals are
-            resampled in blocks of {b.blockLength} consecutive months (a moving-block bootstrap, so
-            their autocorrelation is kept), the break is found again in each of{" "}
-            {b.tau.B.toLocaleString("en-AU")} resamples, and the middle 95% is reported (seed{" "}
-            {DEFAULT_SEED}).
+            resampled in blocks of {b.blockLength} consecutive months (a moving-block bootstrap),
+            the break is found again in each of {b.tau.B.toLocaleString("en-AU")} resamples, and the
+            middle 95% is reported (seed {DEFAULT_SEED}).
+          </p>
+          <p>
+            The residuals move slowly: their autocorrelation is{" "}
+            {b.residualAcf.map((r, i) => (
+              <span key={r.lag}>
+                {i ? (i === b.residualAcf.length - 1 ? " and " : ", ") : ""}
+                {r.acf.toFixed(2)} at lag {r.lag}
+              </span>
+            ))}
+            . Blocks have to be long enough to keep that dependence, so the length is chosen from
+            the residuals with Politis and White’s automatic rule (circular-block estimate, rounded)
+            rather than a rule of thumb. Shorter blocks break the dependence up and give an interval
+            that is too narrow; the table below shows by how much.
           </p>
         </SectionHeading>
         <ChartFrame
@@ -107,6 +123,65 @@ export default function ConcentrationPage() {
             </Link>
             ) is the visible driver.
           </Callout>
+        </div>
+      </section>
+
+      <section aria-labelledby="blocks" className="mb-12">
+        <SectionHeading id="blocks" kicker="Sensitivity" title="How much the block length matters">
+          <p>
+            The same bootstrap with other block lengths. The break itself does not move; its
+            interval widens as the blocks get long enough to carry the residuals’ autocorrelation,
+            and settles once they do. The headline uses the automatic choice.
+          </p>
+        </SectionHeading>
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead scope="col">Block length</TableHead>
+                <TableHead scope="col" className="text-right">
+                  Break (95% CI)
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  Interval width
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  HHI change a year, before
+                </TableHead>
+                <TableHead scope="col" className="text-right">
+                  After
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pub.sensitivity.map((r) => (
+                <TableRow key={r.blockLength} className={r.chosen ? "bg-accent/40" : undefined}>
+                  <TableHead scope="row" className="font-medium">
+                    {r.blockLength} months
+                    {r.chosen ? (
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        automatic choice (used above)
+                      </span>
+                    ) : null}
+                  </TableHead>
+                  <TableCell className="tabular text-right">
+                    {monthLabel(r.tau.estimate)} ({monthLabel(r.tau.lower)} to{" "}
+                    {monthLabel(r.tau.upper)})
+                  </TableCell>
+                  <TableCell className="tabular text-right">{r.tau.widthMonths} months</TableCell>
+                  <TableCell className="tabular text-right">{perYear(r.slopeBefore)}</TableCell>
+                  <TableCell className="tabular text-right">{perYear(r.slopeAfter)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <MethodNote inCard>
+            {b.tau.B.toLocaleString("en-AU")} resamples per row, seed {DEFAULT_SEED}, names as
+            published. The rule of thumb n<sup>1/3</sup> would give{" "}
+            {Math.round(Math.cbrt(pub.monthly.length))}-month blocks, the first row. Block
+            bootstraps assume the residuals are stationary; the October to December 2023 gap is
+            treated as if the months were consecutive.
+          </MethodNote>
         </div>
       </section>
 

@@ -1,10 +1,10 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["numpy>=2", "scipy>=1.14", "statsmodels>=0.14"]
+# dependencies = ["numpy>=2", "scipy>=1.14", "statsmodels>=0.14", "arch>=7"]
 # ///
 """Reference values for the TypeScript statistics helpers in web/src/lib/stats/.
 
-Every number here comes from scipy, statsmodels or numpy (or, for the funnel and broken-stick
+Every number here comes from scipy, statsmodels, arch or numpy (or, for the funnel and broken-stick
 helpers, from an independent numpy implementation of the published formula), and is written to
 web/src/lib/stats/__fixtures__/reference.json, which stats.test.ts compares against.
 
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import statsmodels.api as sm
+from arch.bootstrap import optimal_block_length
 from scipy import stats
 from statsmodels.stats.contingency_tables import mcnemar
 from statsmodels.stats.proportion import proportion_confint
@@ -205,6 +206,45 @@ def hinge() -> dict:
     }
 
 
+def dependence() -> dict:
+    """Politis-White block lengths (arch), autocorrelations (statsmodels), the pooled within-group
+    lag-1 autocorrelation (numpy, by the formula) and binomial upper tails (scipy)."""
+    rng = np.random.default_rng(17)
+    series = []
+    for n, phi in [(189, 0.95), (120, 0.5), (60, 0.0), (300, 0.8)]:
+        e = np.zeros(n)
+        for i in range(n):
+            e[i] = (phi * e[i - 1] if i else 0) + rng.normal(0, 1)
+        x = 50 + 0.02 * np.arange(n) + e
+        ob = optimal_block_length(x)
+        series.append(
+            {
+                "x": x.tolist(),
+                "stationary": f(ob["stationary"].iloc[0]),
+                "circular": f(ob["circular"].iloc[0]),
+                "acf": [f(v) for v in sm.tsa.acf(x, nlags=12, fft=False)],
+            }
+        )
+    groups = []
+    for _ in range(12):
+        k = int(rng.integers(2, 11))
+        g = np.zeros(k)
+        for i in range(k):
+            g[i] = (0.5 * g[i - 1] if i else 0) + rng.normal(0, 1)
+        groups.append((g + rng.normal(0, 2)).tolist())
+    num = 0.0
+    den = 0.0
+    for g in groups:
+        a = np.asarray(g) - np.mean(g)
+        num += float((a[1:] * a[:-1]).sum())
+        den += float((a**2).sum())
+    tails = [
+        {"k": k, "n": n, "p": p, "sf": f(stats.binom.sf(k - 1, n, p))}
+        for k, n, p in [(39, 48, 0.05), (9, 48, 0.05), (3, 48, 0.05), (0, 10, 0.3), (7, 10, 0.3)]
+    ]
+    return {"series": series, "groups": groups, "pooled_rho": num / den, "binom_upper": tails}
+
+
 def main() -> None:
     out = {
         "generated_by": "scripts/stats_reference.py",
@@ -212,6 +252,7 @@ def main() -> None:
             "numpy": np.__version__,
             "scipy": __import__("scipy").__version__,
             "statsmodels": sm.__version__ if hasattr(sm, "__version__") else __import__("statsmodels").__version__,
+            "arch": __import__("arch").__version__,
         },
         "distributions": distributions(),
         "intervals": intervals(),
@@ -219,6 +260,7 @@ def main() -> None:
         "regression": regression(),
         "funnel": funnel(),
         "hinge": hinge(),
+        "dependence": dependence(),
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, separators=(",", ":")) + "\n")

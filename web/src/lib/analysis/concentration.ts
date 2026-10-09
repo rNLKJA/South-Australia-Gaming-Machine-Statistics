@@ -7,7 +7,8 @@ import type { FY, ManufacturerMonth, Month } from "../types"
 
 /**
  * Market concentration (HHI) with its uncertainty: annual means with a bootstrap over months, and
- * a broken-stick change-point check on the monthly series.
+ * a broken-stick change-point check on the monthly series, with a sensitivity check of the break's
+ * interval against the bootstrap block length.
  */
 
 export const FIRST_MONTH: Month = "2009-07"
@@ -51,6 +52,15 @@ export function monthFromIndex(i: number): Month {
   return `${y}-${String(m).padStart(2, "0")}`
 }
 
+export interface BlockSensitivity {
+  blockLength: number
+  /** The automatic (Politis–White) choice used for the headline interval. */
+  chosen: boolean
+  tau: { estimate: Month; lower: Month; upper: Month; widthMonths: number }
+  slopeBefore: [number, number, number]
+  slopeAfter: [number, number, number]
+}
+
 export interface ConcentrationVariant {
   id: "published" | "lineage"
   label: string
@@ -59,6 +69,25 @@ export interface ConcentrationVariant {
   breakpoint: HingeBootstrap
   /** Fitted broken-stick values by month, for drawing. */
   fitted: { month: Month; fitted: number }[]
+  /** The break's interval under other block lengths, to show how much the choice matters. */
+  sensitivity: BlockSensitivity[]
+}
+
+function sensitivityRow(h: HingeBootstrap, chosen: boolean): BlockSensitivity {
+  const per = (r: { estimate: number; lower: number; upper: number }) =>
+    [12 * r.estimate, 12 * r.lower, 12 * r.upper] as [number, number, number]
+  return {
+    blockLength: h.blockLength,
+    chosen,
+    tau: {
+      estimate: monthFromIndex(h.tau.estimate),
+      lower: monthFromIndex(h.tau.lower),
+      upper: monthFromIndex(h.tau.upper),
+      widthMonths: Math.round(h.tau.upper - h.tau.lower),
+    },
+    slopeBefore: per(h.slopeBefore),
+    slopeAfter: per(h.slopeAfter),
+  }
 }
 
 export function concentrationVariant(
@@ -68,12 +97,22 @@ export function concentrationVariant(
     B = 1000,
     seed = DEFAULT_SEED,
     minSegment = 24,
-  }: { B?: number; seed?: number; minSegment?: number } = {}
+    sensitivityBlocks = [],
+  }: { B?: number; seed?: number; minSegment?: number; sensitivityBlocks?: number[] } = {}
 ): ConcentrationVariant {
   const months = monthlyShares([...rows], merge)
   const t = months.map((m) => monthIndex(m.month))
   const y = months.map((m) => m.hhi)
-  const breakpoint = bootstrapHinge(t, y, { B, seed, minSegment })
+  // block length chosen from the residuals' own autocorrelation (Politis–White)
+  const breakpoint = bootstrapHinge(t, y, { B, seed, minSegment, blockLength: "auto" })
+  const sensitivity = [
+    sensitivityRow(breakpoint, true),
+    ...sensitivityBlocks
+      .filter((L) => L !== breakpoint.blockLength)
+      .map((L) =>
+        sensitivityRow(bootstrapHinge(t, y, { B, seed, minSegment, blockLength: L }), false)
+      ),
+  ].sort((a, b) => a.blockLength - b.blockLength)
   return {
     id: merge ? "lineage" : "published",
     label: merge ? "Light & Wonder lineage combined" : "Names as published",
@@ -81,6 +120,7 @@ export function concentrationVariant(
     annual: hhiByYear(months, { B: 2000, seed }),
     breakpoint,
     fitted: months.map((m, i) => ({ month: m.month, fitted: breakpoint.fit.fitted[i] })),
+    sensitivity,
   }
 }
 

@@ -55,7 +55,13 @@ export default function AnalysisPage() {
               n = {its.n} months) and its trend steepened by {m(its.slopePerYear.estimate)} a year.
             </>
           }
-          detail={`The first full year after reopening averaged ${fmtMillions(pair.summary.t.estimate, 2)} a month more than FY 2018/19 (paired over 12 calendar months, d_z = ${pair.summary.dz.toFixed(2)}).`}
+          detail={
+            <>
+              The first full year after reopening averaged {fmtMillions(pair.summary.t.estimate, 2)}{" "}
+              a month more than FY 2018/19 (paired over 12 calendar months, d<sub>z</sub> ={" "}
+              {pair.summary.dz.toFixed(2)}).
+            </>
+          }
         />
         <Card
           href="/analysis/councils"
@@ -64,12 +70,12 @@ export default function AnalysisPage() {
           finding={
             <>
               {latest.outside95.count} of {latest.outside95.n} areas sit outside the year-to-year
-              95% limits in FY 2024/25 ({fmtPct(latest.outside95.estimate, 0)}, Wilson CI{" "}
-              {fmtPct(latest.outside95.lower, 0)}–{fmtPct(latest.outside95.upper, 0)}): the
-              differences between councils are lasting, not small-number noise.
+              95% limits in FY 2024/25 ({fmtPct(latest.outside95.share, 0)}), where chance alone
+              would put about {latest.outside95.expected.toFixed(1)}: the differences between
+              councils are lasting, not small-number noise.
             </>
           }
-          detail={`${above} areas are consistently above the state rate and ${below} consistently below, across three to eleven years each.`}
+          detail={`Of ${c.persistent.length} areas with three or more years, ${above} are consistently above the state rate and ${below} below, with intervals widened for year-to-year dependence.`}
         />
         <Card
           href="/analysis/concentration"
@@ -78,12 +84,12 @@ export default function AnalysisPage() {
           finding={
             <>
               Manufacturer concentration stopped falling in {monthLabel(k.breaks[0].tau)} (95% CI{" "}
-              {monthLabel(k.breaks[0].tauLower)} to {monthLabel(k.breaks[0].tauUpper)}): from about{" "}
-              {fmtInt(-12 * b.slopeBefore.estimate)} points a year down to about{" "}
-              {fmtInt(12 * b.slopeAfter.estimate)} a year up.
+              {monthLabel(k.breaks[0].tauLower)} to {monthLabel(k.breaks[0].tauUpper)}). It fell by
+              about {fmtInt(-12 * b.slopeBefore.estimate)} points a year until then and has risen by
+              about {fmtInt(12 * b.slopeAfter.estimate)} a year since.
             </>
           }
-          detail="Moving-block bootstrap of the residuals, re-fitting the break in every resample."
+          detail={`Moving-block bootstrap of the residuals in ${b.blockLength}-month blocks (chosen from their autocorrelation), re-fitting the break in every resample.`}
         />
       </ul>
 
@@ -118,7 +124,7 @@ function Card({
   title: string
   kicker: string
   finding: ReactNode
-  detail: string
+  detail: ReactNode
 }) {
   return (
     <li className="bg-card">

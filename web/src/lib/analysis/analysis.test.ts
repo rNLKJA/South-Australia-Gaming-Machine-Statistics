@@ -16,6 +16,7 @@ import {
   FUNNEL_FYS,
   funnelYears,
   persistentRatios,
+  serialDependence,
   scalingCheck,
   yearToYearScale,
 } from "./councils"
@@ -145,6 +146,10 @@ describe("council analysis", () => {
         expect(f.zones[kind].reduce((s, z) => s + z.count, 0)).toBe(f.points.length)
       }
       expect(f.outside95.n).toBe(f.points.length)
+      // a census count is compared with the 5% the limits allow for, not given a binomial CI
+      expect(f.outside95.expected).toBeCloseTo(0.05 * f.points.length, 12)
+      expect(f.outside95.tailP).toBeGreaterThanOrEqual(0)
+      expect(f.outside95.tailP).toBeLessThanOrEqual(1)
       // allowing for between-area spread can only widen the limits
       expect(f.outside95Overdispersed.count).toBeLessThanOrEqual(f.outside95.count)
       f.curves.forEach((c) => {
@@ -154,8 +159,19 @@ describe("council analysis", () => {
     }
   })
 
+  it("measures year-to-year dependence within areas", () => {
+    const d = serialDependence(rows)
+    expect(d.rho).toBeGreaterThan(0)
+    expect(d.rho).toBeLessThan(1)
+    expect(d.areas).toBe(scalingCheck(rows).n)
+    expect(d.inflation).toBeCloseTo(Math.sqrt((1 + d.rho) / (1 - d.rho)), 12)
+    // no pair spans FY 2019/20, which has no machine counts
+    expect(d.pairs).toBeLessThan(rows.length)
+  })
+
   it("summarises each area's typical ratio to the state rate", () => {
-    const pr = persistentRatios(rows)
+    const { inflation } = serialDependence(rows)
+    const pr = persistentRatios(rows, 3, inflation)
     expect(pr.length).toBeGreaterThan(40)
     for (const p of pr) {
       expect(p.years).toBeGreaterThanOrEqual(3)
@@ -163,7 +179,13 @@ describe("council analysis", () => {
       expect(p.direction).toBe(
         p.ratio.lower > 1 ? "above" : p.ratio.upper < 1 ? "below" : "unclear"
       )
+      // allowing for dependence only widens the interval
+      expect(p.ratio.lower).toBeLessThanOrEqual(p.ratioIndependent.lower)
+      expect(p.ratio.upper).toBeGreaterThanOrEqual(p.ratioIndependent.upper)
+      expect(p.ratio.estimate).toBe(p.ratioIndependent.estimate)
     }
+    const independent = persistentRatios(rows)
+    expect(independent.map((p) => p.ratio)).toEqual(independent.map((p) => p.ratioIndependent))
     // sorted largest first
     for (let i = 1; i < pr.length; i++) {
       expect(pr[i].ratio.estimate).toBeLessThanOrEqual(pr[i - 1].ratio.estimate)

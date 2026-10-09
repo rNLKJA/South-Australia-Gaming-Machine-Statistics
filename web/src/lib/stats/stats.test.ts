@@ -9,7 +9,20 @@ import {
   defaultBlockLength,
   movingBlockIndices,
 } from "./bootstrap"
-import { binomialTestTwoSided, normalCdf, normalQuantile, tCdf, tQuantile } from "./distributions"
+import {
+  ar1SeInflation,
+  autocorrelation,
+  optimalBlockLength,
+  pooledLag1Autocorrelation,
+} from "./dependence"
+import {
+  binomialTestTwoSided,
+  binomialUpperTail,
+  normalCdf,
+  normalQuantile,
+  tCdf,
+  tQuantile,
+} from "./distributions"
 import { funnelLimits, funnelZone, overdispersion, pooledWithinScale } from "./funnel"
 import { tInterval, wilsonInterval } from "./intervals"
 import {
@@ -24,7 +37,7 @@ import {
 import { mcnemarExact, pairedSummary } from "./paired"
 import { median, quantile } from "./quantile"
 import { DEFAULT_SEED, mulberry32 } from "./rng"
-import { bootstrapHinge, candidateBreaks, fitHinge } from "./segmented"
+import { autoBlockLength, bootstrapHinge, candidateBreaks, fitHinge } from "./segmented"
 import { nextOdd, psort, stl, stlStrength } from "./stl"
 
 function close(a: number, b: number, tol: number) {
@@ -43,6 +56,44 @@ describe("distributions (against scipy)", () => {
   })
   it("exact two-sided binomial test", () => {
     for (const r of d.binom_test) close(binomialTestTwoSided(r.k, r.n), r.p, 1e-10)
+  })
+  it("binomial upper tail, including very small tails", () => {
+    for (const r of ref.dependence.binom_upper) {
+      const got = binomialUpperTail(r.k, r.n, r.p)
+      expect(Math.abs(got - r.sf), `${r.k}/${r.n}`).toBeLessThanOrEqual(
+        1e-9 * Math.max(r.sf, 1e-300)
+      )
+    }
+    expect(binomialUpperTail(49, 48, 0.05)).toBe(0)
+  })
+})
+
+describe("serial dependence (against arch and statsmodels)", () => {
+  const dep = ref.dependence
+  it("Politis–White automatic block lengths match arch", () => {
+    for (const s of dep.series) {
+      const b = optimalBlockLength(s.x)
+      close(b.stationary, s.stationary, 1e-9)
+      close(b.circular, s.circular, 1e-9)
+    }
+    expect(() => optimalBlockLength([1, 2, 3])).toThrow()
+  })
+  it("autocorrelations match statsmodels acf", () => {
+    for (const s of dep.series) {
+      for (let k = 1; k <= 12; k++) close(autocorrelation(s.x, k), s.acf[k], 1e-10)
+    }
+  })
+  it("pools the within-group lag-1 autocorrelation and inflates standard errors", () => {
+    const p = pooledLag1Autocorrelation([...dep.groups, [3]])
+    close(p.rho, dep.pooled_rho, 1e-12)
+    expect(p.groups).toBe(dep.groups.length)
+    expect(p.pairs).toBe(dep.groups.reduce((s, g) => s + g.length - 1, 0))
+    // a null breaks the series: no pair spans it, but both sides count towards the mean
+    const gap = pooledLag1Autocorrelation([[1, 2, null, 4, 5]])
+    expect(gap.pairs).toBe(2)
+    close(gap.rho, (-2 * -1 + 1 * 2) / (4 + 1 + 1 + 4), 1e-12)
+    close(ar1SeInflation(0.46), Math.sqrt(1.46 / 0.54), 1e-12)
+    expect(ar1SeInflation(-0.3)).toBe(1)
   })
 })
 
@@ -274,6 +325,19 @@ describe("broken-stick regression", () => {
     expect(a.tau.lower).toBeLessThanOrEqual(h.tau)
     expect(a.tau.upper).toBeGreaterThanOrEqual(h.tau)
     expect(a.slopeChange.lower).toBeGreaterThan(0)
+    expect(a.blockRule).toBe("auto")
+    expect(a.residualAcf.map((r) => r.lag)).toEqual([1, 3, 6, 12])
+    const fixed = bootstrapHinge(h.t, h.y, { B: 60, seed: 7, blockLength: 5 })
+    expect(fixed.blockLength).toBe(5)
+    expect(fixed.blockRule).toBe("fixed")
+  })
+  it("chooses longer blocks for strongly autocorrelated residuals", () => {
+    // a weakly dependent series gets shorter blocks than an AR(0.95) one
+    const series = ref.dependence.series
+    const ar = series[0].x
+    const weak = series[2].x
+    expect(autoBlockLength(ar.map((v) => v - 50))).toBeGreaterThan(autoBlockLength(weak))
+    expect(autoBlockLength(ar)).toBe(Math.round(series[0].circular))
   })
   it("keeps a minimum number of points on each side", () => {
     expect(candidateBreaks([1, 2, 3, 4, 5, 6], 2)).toEqual([2, 3, 4])

@@ -8,9 +8,10 @@ import {
   type Overdispersion,
   type PooledScale,
 } from "../stats/funnel"
-import { tInterval, wilsonInterval, type Interval } from "../stats/intervals"
+import { ar1SeInflation, pooledLag1Autocorrelation } from "../stats/dependence"
+import { binomialUpperTail, tQuantile } from "../stats/distributions"
+import { tInterval, type Interval } from "../stats/intervals"
 import { ols, type OlsFit } from "../stats/ols"
-import { tQuantile } from "../stats/distributions"
 import type { FY, LgaUnit, LgaUnitKind } from "../types"
 
 /**
@@ -127,6 +128,27 @@ export interface ZoneCount {
   count: number
 }
 
+export interface OutsideCount {
+  count: number
+  n: number
+  share: number
+  /** Expected count if every area shared the state rate and the variance model held: 5% of n. */
+  expected: number
+  /** P(X ≥ count) for X ~ Bin(n, 0.05), treating the areas as independent. */
+  tailP: number
+}
+
+/** Compare a count outside the 95% limits with the 5% the limits allow for by chance. */
+export function outsideCount(count: number, n: number): OutsideCount {
+  return {
+    count,
+    n,
+    share: n ? count / n : NaN,
+    expected: 0.05 * n,
+    tailP: binomialUpperTail(count, n, 0.05),
+  }
+}
+
 export interface FunnelYear {
   fy: FY
   stateRate: number
@@ -139,9 +161,13 @@ export interface FunnelYear {
     noise: ReturnType<typeof funnelLimits>
     overdispersed: ReturnType<typeof funnelLimits>
   }[]
-  /** Areas outside the 95% limits under year-to-year noise alone, with a Wilson interval. */
-  outside95: Interval & { count: number; n: number }
-  outside95Overdispersed: Interval & { count: number; n: number }
+  /**
+   * Areas outside the 95% limits. The areas are every published area that year (a census, not a
+   * sample), so the count is compared with what the variance model predicts rather than given a
+   * binomial interval: if every area shared the state rate, about 5% would fall outside by chance.
+   */
+  outside95: OutsideCount
+  outside95Overdispersed: OutsideCount
   zones: Record<"noise" | "overdispersed", ZoneCount[]>
 }
 
@@ -177,10 +203,8 @@ export function funnelYears(rows: readonly AreaYear[]): FunnelYear[] {
       noise: funnelLimits(stateRate, m, c),
       overdispersed: funnelLimits(stateRate, m, c, od.tau2),
     }))
-    const outside = (k: "noise" | "overdispersed") => {
-      const count = points.filter((p) => p.zone[k] !== "within").length
-      return { ...wilsonInterval(count, points.length), count, n: points.length }
-    }
+    const outside = (k: "noise" | "overdispersed") =>
+      outsideCount(points.filter((p) => p.zone[k] !== "within").length, points.length)
     const zones = (k: "noise" | "overdispersed") =>
       ZONES.map((zone) => ({ zone, count: points.filter((p) => p.zone[k] === zone).length }))
     return {
@@ -197,6 +221,35 @@ export function funnelYears(rows: readonly AreaYear[]): FunnelYear[] {
   })
 }
 
+export interface SerialDependence {
+  /** Pooled within-area lag-1 autocorrelation of the log ratios (consecutive years only). */
+  rho: number
+  pairs: number
+  areas: number
+  minYears: number
+  /** √((1 + ρ) / (1 − ρ)): how much the dependence widens a standard error of a mean. */
+  inflation: number
+}
+
+/**
+ * How strongly an area's ratio in one year predicts the next: the pooled lag-1 autocorrelation of
+ * the log ratios within areas, from areas with at least `minYears` years (shorter series bias the
+ * estimate towards zero). FY 2019/20 has no machine counts, so no pair spans it.
+ */
+export function serialDependence(rows: readonly AreaYear[], minYears = 4): SerialDependence {
+  const fys = LGA_FYS
+  const series: (number | null)[][] = []
+  for (const list of groupRows(rows).values()) {
+    if (list.length < minYears) continue
+    const byFy = new Map(list.map((r) => [r.fy, r.logRatio]))
+    series.push(fys.map((fy) => byFy.get(fy) ?? null))
+  }
+  const p = pooledLag1Autocorrelation(series)
+  return { rho: p.rho, pairs: p.pairs, areas: p.groups, minYears, inflation: ar1SeInflation(p.rho) }
+}
+
+export type Direction = "above" | "below" | "unclear"
+
 export interface PersistentRatio {
   id: string
   label: string
@@ -205,24 +258,43 @@ export interface PersistentRatio {
   firstFy: FY
   lastFy: FY
   meanMachines: number
-  /** Geometric mean of rate / state rate across years, with a t interval on the log scale. */
+  /**
+   * Geometric mean of rate / state rate across years, with a t interval on the log scale whose
+   * standard error is widened for year-to-year dependence (see serialDependence).
+   */
   ratio: Interval
   /** Whether the interval excludes 1 (consistently above or below the state rate). */
-  direction: "above" | "below" | "unclear"
+  direction: Direction
+  /** The same interval if the years were independent (narrower), for comparison. */
+  ratioIndependent: Interval
+  directionIndependent: Direction
 }
 
-/** Each area's typical NGR per machine relative to the state, with its year-to-year uncertainty. */
-export function persistentRatios(rows: readonly AreaYear[], minYears = 3): PersistentRatio[] {
+const directionOf = (ci: Interval): Direction =>
+  ci.lower > 1 ? "above" : ci.upper < 1 ? "below" : "unclear"
+
+/**
+ * Each area's typical NGR per machine relative to the state, with its year-to-year uncertainty.
+ * `inflation` multiplies the standard error (1 treats the years as independent).
+ */
+export function persistentRatios(
+  rows: readonly AreaYear[],
+  minYears = 3,
+  inflation = 1
+): PersistentRatio[] {
   const out: PersistentRatio[] = []
   for (const [id, list] of groupRows(rows)) {
     if (list.length < minYears) continue
     const sorted = [...list].sort((a, b) => a.fy.localeCompare(b.fy))
     const ci = tInterval(sorted.map((r) => r.logRatio))
-    const ratio = {
+    const q = tQuantile(0.975, ci.df)
+    const onRatio = (half: number) => ({
       estimate: Math.exp(ci.estimate),
-      lower: Math.exp(ci.lower),
-      upper: Math.exp(ci.upper),
-    }
+      lower: Math.exp(ci.estimate - half),
+      upper: Math.exp(ci.estimate + half),
+    })
+    const ratio = onRatio(q * ci.se * inflation)
+    const ratioIndependent = onRatio(q * ci.se)
     out.push({
       id,
       label: sorted.at(-1)!.label,
@@ -232,7 +304,9 @@ export function persistentRatios(rows: readonly AreaYear[], minYears = 3): Persi
       lastFy: sorted.at(-1)!.fy,
       meanMachines: sorted.reduce((s, r) => s + r.machines, 0) / sorted.length,
       ratio,
-      direction: ratio.lower > 1 ? "above" : ratio.upper < 1 ? "below" : "unclear",
+      direction: directionOf(ratio),
+      ratioIndependent,
+      directionIndependent: directionOf(ratioIndependent),
     })
   }
   return out.sort((a, b) => b.ratio.estimate - a.ratio.estimate)

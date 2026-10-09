@@ -217,6 +217,15 @@ export function binomialPmf(k: number, n: number, p: number): number {
   )
 }
 
+/** Upper tail P(X ≥ k), X ~ Bin(n, p) (scipy `binom.sf(k - 1, n, p)`). */
+export function binomialUpperTail(k: number, n: number, p: number): number {
+  if (k <= 0) return 1
+  if (k > n) return 0
+  let total = 0
+  for (let i = Math.ceil(k); i <= n; i++) total += binomialPmf(i, n, p)
+  return Math.min(1, total)
+}
+
 /**
  * Exact two-sided binomial test p-value, defined as in scipy.stats.binomtest: the total
  * probability of outcomes no more likely than the observed one (relative tolerance 1e-7).
