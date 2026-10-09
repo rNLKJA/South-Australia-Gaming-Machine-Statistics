@@ -1,18 +1,21 @@
 "use client"
 
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, X } from "lucide-react"
+import dynamic from "next/dynamic"
 import { useTheme } from "next-themes"
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react"
 
-import { TrendChart, type Datum } from "@/components/charts/trend-chart"
+import { Legend, TrendChart, type Datum, type SeriesSpec } from "@/components/charts/trend-chart"
 import { Segmented } from "@/components/common/segmented"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { useGeoJson } from "@/hooks/use-geojson"
 import { fmtAud, fmtAudCompact, fmtInt } from "@/lib/format"
-import { fyLabel, fyShort } from "@/lib/fy"
+import { fyAxis, fyLabel, fyShort } from "@/lib/fy"
 import { pointInGeometry } from "@/lib/geo"
 import {
+  areaHistory,
+  areaYear,
   groupingThreshold,
   LGA_MEASURES,
   LGA_NO_MACHINES_FY,
@@ -20,6 +23,7 @@ import {
   rankUnits,
   sortForMeasure,
   sortUnits,
+  type AreaYear,
   type LgaMeasure,
   type LgaSort,
   type LgaSortCol,
@@ -28,9 +32,39 @@ import { classIndex, quantileBreaks } from "@/lib/stats"
 import type { FY, LgaUnit } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-import { LgaMap, type HoverInfo, type MapMode } from "./lga-map"
-import { NO_DATA, NOT_PUBLISHED, RAMP } from "./palette"
+import type { HoverInfo, MapMode } from "./lga-map"
+import { hatchCss, NOT_PUBLISHED, RAMP } from "./palette"
 import { PlaceSearch, type PlaceResult } from "./place-search"
+
+const MAP_HEIGHT = "h-[420px] sm:h-[540px]"
+
+function MapPlaceholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "grid place-items-center rounded-lg border bg-muted text-sm text-muted-foreground",
+        MAP_HEIGHT
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+// MapLibre (and its stylesheet) load only on this page, after hydration.
+const LgaMap = dynamic(() => import("./lga-map").then((m) => m.LgaMap), {
+  ssr: false,
+  loading: () => <MapPlaceholder>Loading map…</MapPlaceholder>,
+})
+
+/** The councils chosen on the map, in the table or by a place search, followed across years. */
+interface AreaSelection {
+  members: string[]
+  label: string
+}
+
+/** Rows of the ranked table shown on small screens before "Show all". */
+const MOBILE_ROWS = 12
 
 function formatMeasure(measure: LgaMeasure, v: number | null, compact = false): string {
   if (v == null) return "–"
@@ -61,7 +95,8 @@ export function CouncilExplorer({
 }) {
   const [fyIndex, setFyIndex] = useState(fys.length - 1)
   const [measure, setMeasure] = useState<LgaMeasure>("ngr")
-  const [selectedCode, setSelectedCode] = useState<string | null>(null)
+  const [selection, setSelection] = useState<AreaSelection | null>(null)
+  const [showAll, setShowAll] = useState(false)
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
   const [focusPoint, setFocusPoint] = useState<[number, number] | null>(null)
   /** The last searched place and the council it fell in (null code: outside every boundary). */
@@ -116,10 +151,15 @@ export function CouncilExplorer({
       return { breaks, colorOf, singleColors, groupColors, byKey, rankOf, hasUnpublished }
     }, [fyUnits, measure, mode])
 
-  const selectedUnit = selectedCode
-    ? (fyUnits.find((u) => u.codes.includes(selectedCode)) ?? null)
-    : null
-  const selectedKey = selectedUnit ? mapKey(selectedUnit) : null
+  // The published rows that hold the selected councils in the year on screen (one, several, or a
+  // wider group), highlighted together on the map and in the table.
+  const selectedYear = useMemo(
+    () => (selection ? areaYear(units, selection.members, fy) : null),
+    [units, selection, fy]
+  )
+  const selectedIds = new Set(selectedYear?.units.map((u) => u.id))
+  const selectedKeys = (selectedYear?.units ?? []).map(mapKey).filter(Boolean)
+  const selectUnit = (u: LgaUnit) => setSelection({ members: u.members, label: u.label })
 
   const rows = useMemo(() => sortUnits(fyUnits, sort), [fyUnits, sort])
 
@@ -142,9 +182,8 @@ export function CouncilExplorer({
 
   const selectKey = useCallback(
     (key: string | null) => {
-      if (!key) return setSelectedCode(null)
-      const u = byKey.get(key)
-      setSelectedCode(u?.codes[0] ?? null)
+      const u = key ? byKey.get(key) : undefined
+      setSelection(u ? { members: u.members, label: u.label } : null)
       setSearched(null)
     },
     [byKey]
@@ -154,7 +193,12 @@ export function CouncilExplorer({
     setFocusPoint([p.lon, p.lat])
     const hit = councils.data?.features.find((f) => pointInGeometry([p.lon, p.lat], f.geometry))
     const code = hit ? String(hit.properties?.code) : null
-    setSelectedCode(code)
+    // Follow the area the council is published in this year, or the council on its own.
+    const u = code ? fyUnits.find((x) => x.codes.includes(code)) : undefined
+    const name = code ? councilNames[code] : undefined
+    setSelection(
+      u ? { members: u.members, label: u.label } : name ? { members: [name], label: name } : null
+    )
     setSearched({ label: p.label, code })
   }
 
@@ -249,21 +293,21 @@ export function CouncilExplorer({
               groups={groups.data}
               singleColors={singleColors}
               groupColors={groupColors}
-              selectedKey={selectedKey}
+              selectedKeys={selectedKeys}
               hoveredKey={hoveredKey}
               focusPoint={focusPoint}
               mode={mode}
               onHover={setHoveredKey}
               onSelect={selectKey}
               describe={describe}
-              className="h-[420px] sm:h-[540px]"
+              className={MAP_HEIGHT}
             />
           ) : (
-            <div className="grid h-[420px] place-items-center rounded-lg border bg-muted text-sm text-muted-foreground sm:h-[540px]">
+            <MapPlaceholder>
               {councils.error || groups.error
                 ? "The council boundaries couldn’t be loaded. The table has every figure."
                 : "Loading council boundaries…"}
-            </div>
+            </MapPlaceholder>
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-soft">
             <span className="font-medium text-foreground">{measureSpec.label}</span>
@@ -300,8 +344,8 @@ export function CouncilExplorer({
             ) : null}
             <span className="flex items-center gap-1.5">
               <span
-                className="inline-block h-3 w-5 rounded-sm"
-                style={{ background: NO_DATA[mode] }}
+                className="inline-block h-3 w-5 rounded-sm border border-black/10 dark:border-white/15"
+                style={{ background: hatchCss(mode) }}
                 aria-hidden
               />
               No venues reported
@@ -330,13 +374,13 @@ export function CouncilExplorer({
               {fyLabel(fy)} · {fyUnits.length} published areas
             </p>
           </div>
-          <div className="max-h-[540px] overflow-auto">
+          <div className="lg:max-h-[540px] lg:overflow-auto">
             <table className="w-full text-sm">
               <caption className="sr-only">
                 Council areas ranked by {inSentence(measureSpec.label)} for {fyLabel(fy)}. Select a
                 row to highlight it on the map.
               </caption>
-              <thead className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
+              <thead className="z-10 bg-card shadow-[0_1px_0_var(--border)] lg:sticky lg:top-0">
                 <tr>
                   <th
                     scope="col"
@@ -369,16 +413,18 @@ export function CouncilExplorer({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((u) => {
+                {rows.map((u, i) => {
                   const v = measureValue(u, measure)
-                  const selected = selectedUnit?.id === u.id
+                  const selected = selectedIds.has(u.id)
                   return (
                     <tr
                       key={u.id}
                       className={cn(
                         "border-b last:border-0",
                         selected ? "bg-teal-soft" : "hover:bg-accent/60",
-                        hoveredKey === mapKey(u) && !selected && "bg-accent/60"
+                        hoveredKey === mapKey(u) && !selected && "bg-accent/60",
+                        // Phones show the top rows first; "Show all" lists the rest in the page.
+                        i >= MOBILE_ROWS && !showAll && !selected && "hidden lg:table-row"
                       )}
                       onMouseEnter={() => setHoveredKey(mapKey(u))}
                       onMouseLeave={() => setHoveredKey(null)}
@@ -390,7 +436,8 @@ export function CouncilExplorer({
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedCode(selected ? null : (u.codes[0] ?? null))
+                            if (selected) setSelection(null)
+                            else selectUnit(u)
                             setSearched(null)
                           }}
                           aria-pressed={selected}
@@ -429,6 +476,18 @@ export function CouncilExplorer({
               </tbody>
             </table>
           </div>
+          {rows.length > MOBILE_ROWS ? (
+            <div className="border-t px-4 py-2.5 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                aria-expanded={showAll}
+                className="text-sm font-medium text-teal hover:underline"
+              >
+                {showAll ? `Show the top ${MOBILE_ROWS}` : `Show all ${rows.length} areas`}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -441,15 +500,15 @@ export function CouncilExplorer({
         </p>
       ) : null}
 
-      {selectedCode ? (
-        <UnitHistoryPanel
-          code={selectedCode}
+      {selection ? (
+        <AreaPanel
+          selection={selection}
           units={units}
           fys={fys}
           measure={measure}
           currentFy={fy}
           onClose={() => {
-            setSelectedCode(null)
+            setSelection(null)
             setFocusPoint(null)
             setSearched(null)
           }}
@@ -523,56 +582,111 @@ function SortHeader({
   )
 }
 
-function UnitHistoryPanel({
-  code,
+/** "2013/14–2021/22, 2024/25": consecutive financial years collapsed into ranges. */
+function yearList(years: FY[], all: FY[]): string {
+  const runs: FY[][] = []
+  for (const fy of years) {
+    const last = runs.at(-1)
+    if (last && all.indexOf(fy) === all.indexOf(last.at(-1)!) + 1) last.push(fy)
+    else runs.push([fy])
+  }
+  return runs
+    .map((r) => (r.length > 1 ? `${fyShort(r[0])}–${fyShort(r.at(-1)!)}` : fyShort(r[0])))
+    .join(", ")
+}
+
+const rowsLabel = (y: AreaYear) => y.units.map((u) => u.label).join("; ")
+
+function AreaPanel({
+  selection,
   units,
   fys,
   measure,
   currentFy,
   onClose,
 }: {
-  code: string
+  selection: AreaSelection
   units: LgaUnit[]
   fys: FY[]
   measure: LgaMeasure
   currentFy: FY
   onClose: () => void
 }) {
-  const history = fys.map((fy) => ({
-    fy,
-    unit: units.find((u) => u.fy === fy && u.codes.includes(code)) ?? null,
-  }))
-  const current =
-    history.find((h) => h.fy === currentFy)?.unit ?? history.findLast((h) => h.unit)?.unit
+  const history = areaHistory(units, selection.members, fys)
+  const now =
+    history.find((h) => h.fy === currentFy) ?? areaYear(units, selection.members, currentFy)
   const spec = LGA_MEASURES.find((m) => m.id === measure)!
-  const labels = [...new Set(history.map((h) => h.unit?.label).filter(Boolean))] as string[]
-  const data: Datum[] = history.map((h) => ({
-    key: h.fy,
-    label: `${fyLabel(h.fy)}${h.unit ? ` · ${h.unit.label}` : ""}`,
-    value: h.unit ? measureValue(h.unit, measure) : null,
-  }))
+  const one = now.status === "same" ? now.units[0] : null
+
+  const noteFor = (y: AreaYear): string | undefined => {
+    const absent = y.absent.length ? ` ${y.absent.join(", ")}: no venues reported.` : ""
+    if (y.status === "none") return "No gaming venues reported in the selected area."
+    if (y.status === "wider")
+      return "Published only within a wider group that includes councils outside the selected area, so this is not the area’s own figure."
+    if (y.status === "parts")
+      return `Added up from ${y.units.length === 1 ? "one published row" : `${y.units.length} published rows`}: ${y.units
+        .map((u) => `${u.label} ${formatMeasure(measure, measureValue(u, measure), true)}`)
+        .join("; ")}.${absent}`
+    return undefined
+  }
+  const data: Datum[] = history.map((y) => {
+    const v = y.totals ? measureValue(y.totals, measure) : null
+    const d: Datum = {
+      key: y.fy,
+      label: `${fyLabel(y.fy)} · ${
+        y.status === "none"
+          ? "no venues reported"
+          : y.status === "wider"
+            ? rowsLabel(y)
+            : selection.label
+      }`,
+      value: y.status === "same" || y.status === "parts" ? v : null,
+      wider: y.status === "wider" ? v : null,
+    }
+    const note = noteFor(y)
+    if (note) d.note = note
+    return d
+  })
+  const wider = history.filter((y) => y.status === "wider")
+  const parts = history.filter((y) => y.status === "parts")
+  const none = history.filter((y) => y.status === "none")
+  const series: SeriesSpec[] = [
+    { key: "value", label: spec.label, color: "var(--chart-1)", type: "bar", stackId: "area" },
+  ]
+  if (wider.length)
+    series.push({
+      key: "wider",
+      label: `${spec.label}, wider group`,
+      color: "var(--chart-4)",
+      type: "bar",
+      stackId: "area",
+      outline: true,
+    })
+  // Wider-group years, grouped by the rows they were published in.
+  const widerByRows = new Map<string, FY[]>()
+  for (const y of wider)
+    widerByRows.set(rowsLabel(y), [...(widerByRows.get(rowsLabel(y)) ?? []), y.fy])
+
   return (
     <section aria-labelledby="unit-history" className="rounded-lg border bg-card p-4 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="kicker text-terracotta">Selected area</p>
           <h2 id="unit-history" className="mt-1 text-2xl font-semibold">
-            {current?.label ?? "No gaming venues reported"}
+            {selection.label}
           </h2>
-          {current ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant="outline">
-                {current.kind === "group"
-                  ? `Combined group of ${current.members.length}`
-                  : current.kind === "split"
-                    ? "Single council (split across workbook rows)"
-                    : "Single council"}
-              </Badge>
-              {current.workbookNames.length > 1 || current.workbookNames[0] !== current.label ? (
-                <Badge variant="secondary">Workbook rows: {current.workbookNames.join(", ")}</Badge>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="outline">
+              {selection.members.length > 1
+                ? `${selection.members.length} councils`
+                : one?.kind === "split"
+                  ? "Single council (split across workbook rows)"
+                  : "Single council"}
+            </Badge>
+            {one && (one.workbookNames.length > 1 || one.workbookNames[0] !== one.label) ? (
+              <Badge variant="secondary">Workbook rows: {one.workbookNames.join(", ")}</Badge>
+            ) : null}
+          </div>
         </div>
         <button
           type="button"
@@ -583,53 +697,115 @@ function UnitHistoryPanel({
           <X className="size-4" aria-hidden />
         </button>
       </div>
-      {current ? (
-        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-5">
-          {LGA_MEASURES.map((m) => (
-            <div key={m.id} className="border-t pt-2">
-              <dt className="text-xs text-muted-foreground">{m.label}</dt>
-              <dd className="tabular mt-0.5 font-serif text-xl font-semibold">
-                {formatMeasure(m.id, measureValue(current, m.id))}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      {current && current.kind === "group" ? (
+
+      <div className="mt-5" aria-live="polite">
+        <p className="text-sm">
+          <span className="tabular font-semibold">{fyLabel(currentFy)}</span>
+          <span className="text-ink-soft">
+            {now.status === "same"
+              ? one?.kind === "group"
+                ? " · published as one combined row"
+                : " · published on its own"
+              : now.status === "parts"
+                ? ` · added up from ${now.units.length === 1 ? "one published row" : `${now.units.length} published rows`} (${rowsLabel(now)})${now.absent.length ? `; ${now.absent.join(", ")} had no venues reported` : ""}`
+                : now.status === "wider"
+                  ? ` · published only within ${rowsLabel(now)}. The figures below are for that whole group, not the selected area.`
+                  : ""}
+          </span>
+        </p>
+        {now.totals ? (
+          <dl
+            className={cn(
+              "mt-3 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-5",
+              now.status === "wider" && "text-ink-soft"
+            )}
+          >
+            {LGA_MEASURES.map((m) => (
+              <div
+                key={m.id}
+                className={cn("border-t pt-2", now.status === "wider" && "border-dashed")}
+              >
+                <dt className="text-xs text-muted-foreground">{m.label}</dt>
+                <dd className="tabular mt-0.5 font-serif text-xl font-semibold">
+                  {formatMeasure(m.id, measureValue(now.totals!, m.id))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="mt-3 rounded-md border border-dashed px-4 py-3 text-sm text-ink-soft">
+            No gaming venues reported in {fyLabel(currentFy)}
+            {selection.members.length > 1 ? " in any of these councils" : ""}. The chart below shows
+            the years that had venues.
+          </p>
+        )}
+      </div>
+
+      {one && one.kind === "group" ? (
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-ink-soft">
           CBS publishes councils with few venues as one combined row. These figures belong to the
-          whole group ({current.members.join(", ")}) and are not split between its members. The
-          original workbook divided them equally across the names ({fmtAud(current.perRowNgr)} NGR
-          per name in {fyLabel(current.fy)}); that division is not an observation.
+          whole group ({one.members.join(", ")}) and are not split between its members. The original
+          workbook divided them equally across the names ({fmtAud(one.perRowNgr)} NGR per name in{" "}
+          {fyLabel(one.fy)}); that division is not an observation.
         </p>
       ) : null}
+
       <div className="mt-6">
         <p className="mb-2 text-sm font-medium">{spec.label} by financial year</p>
+        {wider.length ? (
+          <div className="mb-2">
+            <Legend
+              items={[
+                ...(data.some((d) => d.value != null)
+                  ? [{ label: selection.label, color: "var(--chart-1)" }]
+                  : []),
+                {
+                  label: "Only published within a wider group (not like-for-like)",
+                  color: "var(--chart-4)",
+                  outline: true,
+                },
+              ]}
+            />
+          </div>
+        ) : null}
         <TrendChart
           data={data}
-          series={[{ key: "value", label: spec.label, color: "var(--chart-1)", type: "bar" }]}
+          series={series}
           yFormat={(v) => formatMeasure(measure, v, true)}
           valueFormat={(v) => formatMeasure(measure, v)}
-          xTickFormat={(k) => fyShort(k).replace(/^20/, "’").replace("/", "–")}
+          xTickFormat={fyAxis}
           height={220}
-          ariaLabel={`${spec.label} for the area containing the selected council, by financial year`}
+          ariaLabel={`${spec.label} for ${selection.label} by financial year. The notes below the chart list the years published differently.`}
         />
-        {labels.length > 1 ? (
-          <p className="mt-3 text-sm text-ink-soft">
-            The published grouping changed over time:{" "}
-            {labels.map((l, i) => (
-              <span key={l}>
-                {i > 0 ? "; " : ""}
-                <span className="font-medium">{l}</span> (
-                {history
-                  .filter((h) => h.unit?.label === l)
-                  .map((h) => fyShort(h.fy))
-                  .join(", ")}
-                )
-              </span>
+        {wider.length || parts.length || none.length ? (
+          <ul className="mt-3 space-y-1 text-sm leading-relaxed text-ink-soft">
+            {[...widerByRows].map(([rows, years]) => (
+              <li key={rows}>
+                <span className="tabular font-medium text-foreground">{yearList(years, fys)}:</span>{" "}
+                only published within <span className="font-medium">{rows}</span>, which includes
+                councils outside the selected area (dashed bars).
+              </li>
             ))}
-            . Compare years with care when the group changes.
-          </p>
+            {parts.map((y) => (
+              <li key={y.fy}>
+                <span className="tabular font-medium text-foreground">{fyShort(y.fy)}:</span> added
+                up from separate rows ({rowsLabel(y)})
+                {y.absent.length ? `; ${y.absent.join(", ")} had no venues reported` : ""}.
+              </li>
+            ))}
+            {none.length ? (
+              <li>
+                <span className="tabular font-medium text-foreground">
+                  {yearList(
+                    none.map((y) => y.fy),
+                    fys
+                  )}
+                  :
+                </span>{" "}
+                no gaming venues reported.
+              </li>
+            ) : null}
+          </ul>
         ) : null}
       </div>
     </section>

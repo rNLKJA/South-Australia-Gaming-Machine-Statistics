@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { calendarQuarter, fyLabel, fyOfMonth, fyRange, monthLabel, monthsOfFy } from "./fy"
+import { calendarQuarter, fyAxis, fyLabel, fyOfMonth, fyRange, monthLabel, monthsOfFy } from "./fy"
 
 describe("financial years", () => {
   it("maps July to the new year and June to the old one", () => {
@@ -12,6 +12,8 @@ describe("financial years", () => {
   it("formats labels the way the workbook does", () => {
     expect(fyLabel("2024-25")).toBe("FY 2024/25")
     expect(monthLabel("2020-04")).toBe("Apr 2020")
+    expect(fyAxis("2024-25")).toBe("’24–25")
+    expect(fyAxis(fyOfMonth("2009-07"))).toBe("’09–10")
   })
 
   it("enumerates years and months", () => {

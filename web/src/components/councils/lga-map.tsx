@@ -12,6 +12,8 @@ import {
   fallbackStyle,
   FILL_OPACITY,
   GROUP_OUTLINE,
+  HATCH_IMAGE,
+  hatchImage,
   LABEL_HALO,
   NO_DATA,
   OPENFREEMAP_STYLE,
@@ -34,7 +36,8 @@ export interface LgaMapProps {
   singleColors: Record<string, string>
   /** Group geoKey → fill colour, for every combined group published this year. */
   groupColors: Record<string, string>
-  selectedKey: string | null
+  /** Codes and group keys to outline as selected (an area can span several published rows). */
+  selectedKeys: string[]
   hoveredKey: string | null
   focusPoint: [number, number] | null
   mode: MapMode
@@ -79,13 +82,17 @@ function addLayers(map: MlMap, councils: FeatureCollection, groups: FeatureColle
   if (!map.getSource("councils")) map.addSource("councils", { type: "geojson", data: councils })
   if (!map.getSource("groups")) map.addSource("groups", { type: "geojson", data: groups })
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id)
+  // A new style drops added images, and the hatch differs by theme: (re)add it for this mode.
+  if (map.hasImage(HATCH_IMAGE)) map.removeImage(HATCH_IMAGE)
+  map.addImage(HATCH_IMAGE, hatchImage(m))
   const firstSymbol = map.getStyle().layers.find((l) => l.type === "symbol")?.id
   const add = (layer: Parameters<MlMap["addLayer"]>[0]) => map.addLayer(layer, firstSymbol)
+  // Councils with no venues reported (everything not covered by a published unit): hatched.
   add({
     id: "lga-base",
     type: "fill",
     source: "councils",
-    paint: { "fill-color": NO_DATA[m], "fill-opacity": 0.7 },
+    paint: { "fill-pattern": HATCH_IMAGE, "fill-opacity": FILL_OPACITY[m] },
   })
   add({
     id: "lga-single",
@@ -155,6 +162,9 @@ function applyData(map: MlMap, p: LgaMapProps, m: MapMode) {
   if (!map.getLayer("lga-single")) return
   const singles = Object.keys(p.singleColors)
   const groupKeys = Object.keys(p.groupColors)
+  // A group's key is its member codes joined with "+".
+  const covered = [...singles, ...groupKeys.flatMap((k) => k.split("+"))]
+  map.setFilter("lga-base", ["!", ["in", ["get", "code"], ["literal", covered]]])
   map.setFilter("lga-single", ["in", ["get", "code"], ["literal", singles]])
   map.setPaintProperty("lga-single", "fill-color", matchExpr("code", p.singleColors, NO_DATA[m]))
   map.setFilter("lga-group", ["in", ["get", "geoKey"], ["literal", groupKeys]])
@@ -162,8 +172,8 @@ function applyData(map: MlMap, p: LgaMapProps, m: MapMode) {
   map.setFilter("lga-group-line", ["in", ["get", "geoKey"], ["literal", groupKeys]])
   map.setFilter("lga-hover", ["==", ["get", "code"], p.hoveredKey ?? ""])
   map.setFilter("lga-group-hover", ["==", ["get", "geoKey"], p.hoveredKey ?? ""])
-  map.setFilter("lga-selected", ["==", ["get", "code"], p.selectedKey ?? ""])
-  map.setFilter("lga-group-selected", ["==", ["get", "geoKey"], p.selectedKey ?? ""])
+  map.setFilter("lga-selected", ["in", ["get", "code"], ["literal", p.selectedKeys]])
+  map.setFilter("lga-group-selected", ["in", ["get", "geoKey"], ["literal", p.selectedKeys]])
 }
 
 export function LgaMap(props: LgaMapProps) {

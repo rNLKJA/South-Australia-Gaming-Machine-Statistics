@@ -37,11 +37,21 @@ export default function DownloadsPage() {
                 <h3 className="text-lg font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-ink-soft">{f.description}</p>
               </div>
-              {f.file.endsWith(".csv") ? (
-                <DownloadIcon className="mt-1 size-5 shrink-0 text-terracotta" aria-hidden />
-              ) : (
-                <FileText className="mt-1 size-5 shrink-0 text-teal" aria-hidden />
-              )}
+              {/* The icon is a second, mouse-only target for the same file as the button below. */}
+              <a
+                href={`/downloads/${f.file}`}
+                download={f.file.endsWith(".csv") ? f.file : undefined}
+                tabIndex={-1}
+                aria-hidden
+                title={`Download ${f.file}`}
+                className="-m-1.5 mt-[-2px] shrink-0 rounded-md p-1.5 hover:bg-accent"
+              >
+                {f.file.endsWith(".csv") ? (
+                  <DownloadIcon className="size-5 text-terracotta" />
+                ) : (
+                  <FileText className="size-5 text-teal" />
+                )}
+              </a>
             </div>
             {f.columns.length ? (
               <p className="mt-3 font-mono text-xs leading-relaxed break-words text-muted-foreground">

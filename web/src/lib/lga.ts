@@ -53,7 +53,10 @@ export const LGA_MEASURES: { id: LgaMeasure; label: string; short: string; help:
   },
 ]
 
-export function measureValue(unit: LgaUnit, measure: LgaMeasure): number | null {
+/** The figures a measure is read from: one published unit, or several added together. */
+export type AreaFigures = Pick<LgaUnit, "ngr" | "avgPerVenue" | "machines" | "premises">
+
+export function measureValue(unit: AreaFigures, measure: LgaMeasure): number | null {
   switch (measure) {
     case "ngr":
       return unit.ngr
@@ -165,12 +168,70 @@ export function sortForMeasure(sort: LgaSort, measure: LgaMeasure): LgaSort {
   return sort.col === "label" ? sort : { col: measure, dir: "desc" }
 }
 
-/** For each year, the published unit that contains an ABS council code (or null). */
-export function unitHistory(units: LgaUnit[], code: string): { fy: FY; unit: LgaUnit | null }[] {
-  return LGA_FYS.map((fy) => ({
-    fy,
-    unit: units.find((u) => u.fy === fy && u.codes.includes(code)) ?? null,
-  }))
+/**
+ * How the councils of a selected area were published in one financial year:
+ * - same: as one row with exactly these councils;
+ * - parts: as several rows that hold only these councils (or with some of them reporting no
+ *   venues), so the rows add up to the area;
+ * - wider: inside at least one row that also holds councils outside the area, so the area's own
+ *   figures were never published that year;
+ * - none: no venues reported in any of the councils.
+ */
+export type AreaYearStatus = "same" | "parts" | "wider" | "none"
+
+export interface AreaYear {
+  fy: FY
+  status: AreaYearStatus
+  /** The published units of the year that contain at least one of the selected councils. */
+  units: LgaUnit[]
+  /** Selected councils that appear in none of those units (no venues reported). */
+  absent: string[]
+  /**
+   * The area's figures ("same", "parts"), the figures of the wider rows that contain it
+   * ("wider"), or null ("none").
+   */
+  totals: AreaFigures | null
+}
+
+/**
+ * Add published units together. One unit keeps its published figures; several are summed and
+ * NGR per venue is recomputed from the sums (machines stay null if any unit lacks them).
+ */
+export function combineUnits(units: LgaUnit[]): AreaFigures {
+  if (units.length === 1) {
+    const { ngr, avgPerVenue, machines, premises } = units[0]
+    return { ngr, avgPerVenue, machines, premises }
+  }
+  const ngr = round(sum(units.map((u) => u.ngr)), 2)
+  const premises = sum(units.map((u) => u.premises))
+  const machines = units.every((u) => u.machines != null)
+    ? sum(units.map((u) => u.machines ?? 0))
+    : null
+  return { ngr, premises, machines, avgPerVenue: premises ? round(ngr / premises, 2) : 0 }
+}
+
+/** The status and figures of one area (a set of council names) in one financial year. */
+export function areaYear(units: LgaUnit[], members: string[], fy: FY): AreaYear {
+  const selected = new Set(members)
+  const hit = units.filter((u) => u.fy === fy && u.members.some((m) => selected.has(m)))
+  if (!hit.length) return { fy, status: "none", units: [], absent: [...members], totals: null }
+  const covered = new Set(hit.flatMap((u) => u.members))
+  const absent = members.filter((m) => !covered.has(m))
+  const wider = hit.some((u) => u.members.some((m) => !selected.has(m)))
+  const status: AreaYearStatus = wider
+    ? "wider"
+    : hit.length === 1 && !absent.length
+      ? "same"
+      : "parts"
+  return { fy, status, units: hit, absent, totals: combineUnits(hit) }
+}
+
+/**
+ * Follow one area (the councils of a unit chosen on the map, or a single searched council) through
+ * every year, comparing like with like when CBS regroups councils.
+ */
+export function areaHistory(units: LgaUnit[], members: string[], fys: FY[] = LGA_FYS): AreaYear[] {
+  return fys.map((fy) => areaYear(units, members, fy))
 }
 
 export interface Reconciliation {

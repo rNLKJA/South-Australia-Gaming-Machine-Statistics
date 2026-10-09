@@ -32,6 +32,11 @@ export function fyShort(fy: FY): string {
   return fy.replace("-", "/")
 }
 
+/** "2024-25" -> "’24–25" (the short axis label used by every chart). */
+export function fyAxis(fy: FY): string {
+  return `’${fy.slice(2, 4)}–${fy.slice(5, 7)}`
+}
+
 /** First calendar year of a financial year. */
 export function fyStartYear(fy: FY): number {
   return Number(fy.slice(0, 4))
