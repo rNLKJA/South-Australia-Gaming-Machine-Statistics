@@ -17,6 +17,7 @@ import {
 import { useElementWidth } from "@/hooks/use-element-width"
 import { thinTicks, ticksThatFit } from "@/lib/ticks"
 
+/** One x-axis point. An optional string `note` is shown in the tooltip under the values. */
 export type Datum = { key: string; label: string } & Record<string, number | string | null>
 
 export interface SeriesSpec {
@@ -27,6 +28,8 @@ export interface SeriesSpec {
   dashed?: boolean
   /** Draw only hollow markers (used for a cross-source point). */
   markersOnly?: boolean
+  /** Bars only: a pale fill with a dashed outline, for values that are not like-for-like. */
+  outline?: boolean
   stackId?: string
   strokeWidth?: number
 }
@@ -78,6 +81,9 @@ export function TrendChart({
 }) {
   const fmt = valueFormat ?? ((v: number) => yFormat(v))
   const labelOf = new Map(data.map((d) => [d.key, d.label]))
+  const noteOf = new Map(
+    data.filter((d) => typeof d.note === "string").map((d) => [d.key, String(d.note)])
+  )
   const tickText = (k: string) => (xTickFormat ? xTickFormat(k) : (labelOf.get(k) ?? k))
   // Evenly spaced ticks that fit the measured width, always keeping the latest period.
   const [ref, width] = useElementWidth<HTMLDivElement>()
@@ -157,13 +163,14 @@ export function TrendChart({
             content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null
               const rows = payload.filter((p) => p.value != null && p.value !== "")
+              const note = noteOf.get(String(label))
               return (
                 <div className="min-w-44 rounded-md border bg-popover px-3 py-2 text-sm shadow-md">
                   <p className="mb-1 font-semibold">
                     {labelOf.get(String(label)) ?? String(label)}
                   </p>
                   {rows.length === 0 ? (
-                    <p className="text-muted-foreground">No data for this period</p>
+                    <p className="text-muted-foreground">{note ?? "No data for this period"}</p>
                   ) : (
                     <ul className="space-y-0.5">
                       {rows.map((p) => {
@@ -189,6 +196,11 @@ export function TrendChart({
                       })}
                     </ul>
                   )}
+                  {note && rows.length ? (
+                    <p className="mt-1.5 max-w-64 text-xs leading-snug text-muted-foreground">
+                      {note}
+                    </p>
+                  ) : null}
                 </div>
               )
             }}
@@ -201,6 +213,10 @@ export function TrendChart({
                   dataKey={s.key}
                   name={s.label}
                   fill={s.color}
+                  fillOpacity={s.outline ? 0.14 : 1}
+                  stroke={s.outline ? s.color : undefined}
+                  strokeWidth={s.outline ? 1.5 : undefined}
+                  strokeDasharray={s.outline ? "4 3" : undefined}
                   stackId={s.stackId}
                   isAnimationActive={false}
                   maxBarSize={44}
@@ -262,13 +278,22 @@ export function TrendChart({
 export function Legend({
   items,
 }: {
-  items: { label: string; color: string; dashed?: boolean; hollow?: boolean }[]
+  items: { label: string; color: string; dashed?: boolean; hollow?: boolean; outline?: boolean }[]
 }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-soft">
       {items.map((i) => (
         <li key={i.label} className="flex items-center gap-1.5">
-          {i.hollow ? (
+          {i.outline ? (
+            <span
+              className="inline-block size-2.5 rounded-sm border border-dashed"
+              style={{
+                borderColor: i.color,
+                background: `color-mix(in oklab, ${i.color} 14%, transparent)`,
+              }}
+              aria-hidden
+            />
+          ) : i.hollow ? (
             <span
               className="inline-block size-2.5 rounded-full border-2 bg-card"
               style={{ borderColor: i.color }}
