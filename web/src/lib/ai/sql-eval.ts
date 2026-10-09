@@ -8,8 +8,14 @@ import { DEFAULT_SEED } from "../stats/rng"
  * Evaluation harness for "Ask the data". A fixed set of questions, each with a hand-written
  * reference query whose answer is checked against the site's own TypeScript figures in
  * sql.test.ts. A model's query passes when its result matches the reference result (execution
- * accuracy), so the score measures answers rather than SQL style. Three questions can't be
- * answered from the tables; for those, a pass means the model said so instead of guessing.
+ * accuracy), so the score measures answers rather than SQL style. Eight questions can't be
+ * answered from the tables; for those, a pass means the model said so instead of guessing. The
+ * prompt's rule for declining is generic (it names no examples), and the one question whose scope
+ * the prompt does state (the years covered) is flagged and reported separately.
+ *
+ * Model output varies between calls (temperature can't be fixed on every model), so a run can
+ * repeat the question set; each question then scores its pass rate across repeats, and intervals
+ * come from a bootstrap over questions.
  */
 
 export type Category = "lookup" | "aggregate" | "domain-rule" | "abstain"
@@ -24,6 +30,11 @@ export interface GoldQuestion {
   category: Category
   /** What the question tests, shown on the evaluation page. */
   tests: string
+  /**
+   * For a question that should be declined: the part of the prompt that states the relevant scope.
+   * Declining it is partly following that statement, so it is reported apart from the others.
+   */
+  scopeInPrompt?: string
 }
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -226,8 +237,54 @@ export const GOLD_QUESTIONS: readonly GoldQuestion[] = [
     question: "What will net gambling revenue be in FY 2026-27?",
     sql: "",
     tests: "A forecast is outside the data: the model should decline.",
+    scopeInPrompt: "The prompt states the years the data cover (FY 2009-10 to FY 2024-25).",
+  },
+  {
+    id: "a04",
+    category: "abstain",
+    ordered: false,
+    question: "Which suburb had the highest net gambling revenue in FY 2024-25?",
+    sql: "",
+    tests: "The finest geography is the council area: the model should decline.",
+  },
+  {
+    id: "a05",
+    category: "abstain",
+    ordered: false,
+    question: "What share of South Australian adults were problem gamblers in FY 2024-25?",
+    sql: "",
+    tests: "Gambling harm is not measured in these data: the model should decline.",
+  },
+  {
+    id: "a06",
+    category: "abstain",
+    ordered: false,
+    question: "What was net gambling revenue from gaming machines in Victoria in FY 2024-25?",
+    sql: "",
+    tests: "Only South Australia is covered: the model should decline.",
+  },
+  {
+    id: "a07",
+    category: "abstain",
+    ordered: false,
+    question: "How much did South Australians lose on online sports betting in FY 2024-25?",
+    sql: "",
+    tests: "Only gaming machines are covered: the model should decline.",
+  },
+  {
+    id: "a08",
+    category: "abstain",
+    ordered: false,
+    question: "What was the average age of people who played gaming machines in FY 2024-25?",
+    sql: "",
+    tests: "There is nothing about players: the model should decline.",
   },
 ]
+
+/** Questions to decline whose scope the prompt does not state: the cleaner test of abstention. */
+export function unpromptedAbstain(q: Pick<GoldQuestion, "category" | "scopeInPrompt">): boolean {
+  return q.category === "abstain" && !q.scopeInPrompt
+}
 
 export type Cell = string | number | null
 
@@ -361,6 +418,8 @@ export interface EvalItemResult {
   auditId: string | null
   /** The model the provider reports it used (a refusal fallback can differ from the run's model). */
   answeredBy: string | null
+  /** Which pass over the question set this attempt belongs to (0-based; absent in older runs). */
+  repeat?: number
 }
 
 export interface EvalRun {
@@ -372,31 +431,104 @@ export interface EvalRun {
   variant: string
   items: EvalItemResult[]
   seed: number
+  /** How many times the question set was asked (1 when absent). */
+  repeats?: number
 }
 
-export type Accuracy = Interval & { n: number; passes: number }
+/**
+ * passes is the sum of the questions' pass rates (a whole number with one repeat). With one
+ * attempt per question the interval is Wilson's; with repeats it is a percentile bootstrap over
+ * questions of the mean pass rate (questions, not attempts, are the independent units).
+ */
+export type Accuracy = Interval & { n: number; passes: number; method: "wilson" | "bootstrap" }
+
+export interface RepeatSpread {
+  /** Lenient accuracy of each repeat over the questions it answered. */
+  perRepeat: number[]
+  min: number
+  max: number
+  /** Questions whose pass/fail result differed between repeats. */
+  mixed: number
+}
 
 export interface RunSummary {
+  /** Questions (attempts are n × repeats). */
   n: number
+  attempts: number
+  repeats: number
   lenient: Accuracy
   strict: Accuracy
   /** Lenient accuracy on the answerable questions, and the abstention rate on the others. */
   answerable: Accuracy
   abstention: Accuracy
+  /** Abstention on the questions whose scope the prompt does not state. */
+  abstentionUnprompted: Accuracy
   /** Leaving out provider errors (overloaded, truncated, ...), which say nothing about the SQL. */
   excludingProviderErrors: Accuracy
   byCategory: { category: Category; n: number; passes: number; ci: Interval }[]
+  /** Counts over attempts. */
   outcomes: Record<Outcome, number>
   answeredBy: string[]
   medianLatencyMs: number | null
   inputTokens: number
   outputTokens: number
   cachedInputTokens: number
+  /** Run-to-run variation; null with a single repeat. */
+  spread: RepeatSpread | null
 }
 
-function accuracy(items: readonly EvalItemResult[], pick: (i: EvalItemResult) => boolean) {
-  const passes = items.filter(pick).length
-  return { ...wilsonInterval(passes, items.length), n: items.length, passes }
+const GOLD_BY_ID = new Map(GOLD_QUESTIONS.map((q) => [q.id, q]))
+
+interface QuestionScore {
+  id: string
+  category: Category
+  attempts: number
+  lenient: number
+  strict: number
+}
+
+/** Per-question pass rates across repeats, in first-seen order. */
+export function questionScores(
+  items: readonly EvalItemResult[],
+  keep: (i: EvalItemResult) => boolean = () => true
+): QuestionScore[] {
+  const by = new Map<string, QuestionScore>()
+  for (const i of items) {
+    if (!keep(i)) continue
+    const s = by.get(i.id) ?? { id: i.id, category: i.category, attempts: 0, lenient: 0, strict: 0 }
+    s.attempts++
+    if (i.lenient) s.lenient++
+    if (i.strict) s.strict++
+    by.set(i.id, s)
+  }
+  return [...by.values()].map((s) => ({
+    ...s,
+    lenient: s.lenient / s.attempts,
+    strict: s.strict / s.attempts,
+  }))
+}
+
+function accuracy(scores: readonly QuestionScore[], rate: (s: QuestionScore) => number): Accuracy {
+  const n = scores.length
+  const rates = scores.map(rate)
+  const passes = rates.reduce((s, r) => s + r, 0)
+  if (scores.every((s) => s.attempts === 1)) {
+    return { ...wilsonInterval(passes, n), n, passes, method: "wilson" }
+  }
+  const b = bootstrap(
+    n,
+    (w) => {
+      let a = 0
+      let m = 0
+      for (let i = 0; i < n; i++) {
+        a += w[i] * rates[i]
+        m += w[i]
+      }
+      return a / m
+    },
+    { B: 4000, seed: DEFAULT_SEED }
+  )
+  return { estimate: b.estimate, lower: b.lower, upper: b.upper, n, passes, method: "bootstrap" }
 }
 
 export function summariseRun(items: readonly EvalItemResult[]): RunSummary {
@@ -406,26 +538,45 @@ export function summariseRun(items: readonly EvalItemResult[]): RunSummary {
   for (const i of items) outcomes[i.outcome]++
   const lat = items.map((i) => i.latencyMs).filter((v): v is number => v !== null)
   const categories: Category[] = ["lookup", "aggregate", "domain-rule", "abstain"]
+  const scores = questionScores(items)
+  const repeats = Math.max(1, ...scores.map((s) => s.attempts))
+  const isUnprompted = (s: QuestionScore) =>
+    s.category === "abstain" && !GOLD_BY_ID.get(s.id)?.scopeInPrompt
+  const repeatIds = [...new Set(items.map((i) => i.repeat ?? 0))].sort((a, b) => a - b)
+  const perRepeat = repeatIds.map((r) => {
+    const its = items.filter((i) => (i.repeat ?? 0) === r)
+    return its.filter((i) => i.lenient).length / its.length
+  })
   return {
-    n: items.length,
-    lenient: accuracy(items, (i) => i.lenient),
-    strict: accuracy(items, (i) => i.strict),
+    n: scores.length,
+    attempts: items.length,
+    repeats,
+    lenient: accuracy(scores, (s) => s.lenient),
+    strict: accuracy(scores, (s) => s.strict),
     answerable: accuracy(
-      items.filter((i) => i.category !== "abstain"),
-      (i) => i.lenient
+      scores.filter((s) => s.category !== "abstain"),
+      (s) => s.lenient
     ),
     abstention: accuracy(
-      items.filter((i) => i.category === "abstain"),
-      (i) => i.lenient
+      scores.filter((s) => s.category === "abstain"),
+      (s) => s.lenient
     ),
+    abstentionUnprompted: accuracy(scores.filter(isUnprompted), (s) => s.lenient),
     excludingProviderErrors: accuracy(
-      items.filter((i) => i.outcome !== "provider_error"),
-      (i) => i.lenient
+      questionScores(items, (i) => i.outcome !== "provider_error"),
+      (s) => s.lenient
     ),
     byCategory: categories.map((category) => {
-      const g = items.filter((i) => i.category === category)
-      const passes = g.filter((i) => i.lenient).length
-      return { category, n: g.length, passes, ci: wilsonInterval(passes, g.length) }
+      const a = accuracy(
+        scores.filter((s) => s.category === category),
+        (s) => s.lenient
+      )
+      return {
+        category,
+        n: a.n,
+        passes: a.passes,
+        ci: { estimate: a.estimate, lower: a.lower, upper: a.upper },
+      }
     }),
     outcomes,
     answeredBy: [...new Set(items.map((i) => i.answeredBy).filter((m): m is string => !!m))].sort(),
@@ -433,20 +584,33 @@ export function summariseRun(items: readonly EvalItemResult[]): RunSummary {
     inputTokens: items.reduce((s, i) => s + (i.inputTokens ?? 0), 0),
     outputTokens: items.reduce((s, i) => s + (i.outputTokens ?? 0), 0),
     cachedInputTokens: items.reduce((s, i) => s + (i.cachedInputTokens ?? 0), 0),
+    spread:
+      repeatIds.length > 1
+        ? {
+            perRepeat,
+            min: Math.min(...perRepeat),
+            max: Math.max(...perRepeat),
+            mixed: scores.filter((s) => s.lenient > 0 && s.lenient < 1).length,
+          }
+        : null,
   }
 }
 
 export interface PairedRunComparison {
   /** Questions both runs answered. */
   n: number
-  bothPass: number
-  onlyA: number
-  onlyB: number
-  neither: number
-  /** accuracy(A) − accuracy(B) with a paired bootstrap interval over questions. */
+  /** Discordance counts and McNemar's exact test: only when both runs asked each question once. */
+  bothPass: number | null
+  onlyA: number | null
+  onlyB: number | null
+  neither: number | null
+  /**
+   * Mean over questions of (pass rate in A − pass rate in B), with a paired bootstrap interval over
+   * questions. With one repeat each, the rates are 0 or 1 and this is the accuracy difference.
+   */
   difference: Interval & { B: number; seed: number }
-  /** Exact McNemar test on the discordant questions. */
-  mcnemarP: number
+  mcnemarP: number | null
+  repeats: [number, number]
 }
 
 /** Paired comparison of two runs on the same questions (lenient execution accuracy). */
@@ -455,14 +619,21 @@ export function compareRuns(
   b: readonly EvalItemResult[],
   seed = DEFAULT_SEED
 ): PairedRunComparison {
-  const byId = new Map(b.map((i) => [i.id, i]))
-  const pairs = a
-    .filter((i) => byId.has(i.id))
-    .map((i) => [i.lenient ? 1 : 0, byId.get(i.id)!.lenient ? 1 : 0] as const)
+  const sa = questionScores(a)
+  const sb = new Map(questionScores(b).map((s) => [s.id, s]))
+  const both = sa.filter((s) => sb.has(s.id))
+  const pairs = both.map((s) => [s.lenient, sb.get(s.id)!.lenient] as const)
   const n = pairs.length
-  const onlyA = pairs.filter(([x, y]) => x === 1 && y === 0).length
-  const onlyB = pairs.filter(([x, y]) => x === 0 && y === 1).length
-  const bothPass = pairs.filter(([x, y]) => x === 1 && y === 1).length
+  const repeats: [number, number] = [
+    Math.max(1, ...sa.map((s) => s.attempts)),
+    Math.max(1, ...[...sb.values()].map((s) => s.attempts)),
+  ]
+  const binary = repeats[0] === 1 && repeats[1] === 1
+  const count = (f: (x: number, y: number) => boolean) =>
+    binary ? pairs.filter(([x, y]) => f(x, y)).length : null
+  const onlyA = count((x, y) => x === 1 && y === 0)
+  const onlyB = count((x, y) => x === 0 && y === 1)
+  const bothPass = count((x, y) => x === 1 && y === 1)
   const B = 4000
   const diff = bootstrap(
     n,
@@ -482,9 +653,10 @@ export function compareRuns(
     bothPass,
     onlyA,
     onlyB,
-    neither: n - bothPass - onlyA - onlyB,
+    neither: binary ? n - bothPass! - onlyA! - onlyB! : null,
     difference: { estimate: diff.estimate, lower: diff.lower, upper: diff.upper, B, seed },
-    mcnemarP: mcnemarExact(onlyA, onlyB),
+    mcnemarP: binary ? mcnemarExact(onlyA!, onlyB!) : null,
+    repeats,
   }
 }
 
@@ -497,6 +669,7 @@ export function runToRows(run: EvalRun) {
     model: run.model,
     answered_by: i.answeredBy ?? "",
     prompt_variant: run.variant,
+    repeat: (i.repeat ?? 0) + 1,
     question_id: i.id,
     category: i.category,
     outcome: i.outcome,

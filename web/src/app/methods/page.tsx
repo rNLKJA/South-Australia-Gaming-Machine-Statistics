@@ -38,7 +38,7 @@ const LINKS = [
   {
     href: "/ask/evaluation",
     title: "Text-to-SQL evaluation",
-    text: "23 questions with checked reference answers, Wilson intervals, paired comparisons.",
+    text: "28 questions with checked reference answers, repeats, intervals, paired comparisons.",
   },
   {
     href: "/ai-log",

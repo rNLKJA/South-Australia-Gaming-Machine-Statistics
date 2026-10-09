@@ -19,12 +19,14 @@ import { sqlSchema } from "@/lib/sql/tables"
 export const metadata: Metadata = {
   title: "Text-to-SQL evaluation",
   description:
-    "An evaluation harness for the bring-your-own-key text-to-SQL feature: 23 questions with reference queries checked against the site's own figures, execution accuracy with Wilson intervals and paired run comparisons.",
+    "An evaluation harness for the bring-your-own-key text-to-SQL feature: 28 questions with reference queries checked against the site's own figures, execution accuracy with intervals, optional repeats and paired run comparisons.",
 }
 
 export default function EvaluationPage() {
   const schema = sqlSchema()
   const answerable = GOLD_QUESTIONS.filter((q) => q.category !== "abstain").length
+  const abstain = GOLD_QUESTIONS.filter((q) => q.category === "abstain")
+  const stated = abstain.filter((q) => q.scopeInPrompt)
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6">
       <PageHeader kicker="Ask the data · Evaluation" title="How often does the model get it right?">
@@ -42,7 +44,7 @@ export default function EvaluationPage() {
       </PageHeader>
       <SupportNote compact className="mb-8 max-w-3xl" />
 
-      <div className="mb-10 grid gap-6 md:grid-cols-3">
+      <div className="mb-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Callout title="Reference answers are checked">
           Each reference query is run in the unit tests and compared with the figure the site
           computes in TypeScript (for example, FY 2024/25 NGR against the Statewide page’s annual
@@ -55,8 +57,14 @@ export default function EvaluationPage() {
         </Callout>
         <Callout title="Small samples" tone="caution">
           {GOLD_QUESTIONS.length} questions give wide intervals: one question is about four
-          percentage points. Accuracy is shown with a Wilson 95% interval, and two runs are compared
-          question by question rather than by their headline rates.
+          percentage points. A single run’s accuracy has a Wilson 95% interval, and two runs are
+          compared question by question rather than by their headline rates.
+        </Callout>
+        <Callout title="Runs vary" tone="caution">
+          The same question can get a different answer on another call: some models don’t accept a
+          temperature setting and others ignore it. Repeat the set three times to see how much
+          accuracy moves; each question then scores its pass rate, and comparisons use those rates,
+          so chance differences between runs aren’t read as a better model or prompt.
         </Callout>
       </div>
 
@@ -65,10 +73,21 @@ export default function EvaluationPage() {
       <section aria-labelledby="questions" className="mt-14">
         <SectionHeading id="questions" kicker="The benchmark" title="Questions and what they test">
           <p>
-            The questions were written before any model was run and are fixed; the prompt’s domain
-            notes restate rules the site already follows (machines are averaged, groups stay whole),
-            which some questions need. The “bare schema” prompt leaves the notes out, so comparing
-            the two prompts shows what they are worth.
+            The questions are fixed, and no model has been run on them for this site. The prompt’s
+            domain notes restate rules the site already follows (machines are averaged, groups stay
+            whole), which some questions need. The “bare schema” prompt leaves the notes out, so
+            comparing the two prompts shows what they are worth.
+          </p>
+          <p>
+            The prompt’s rule for declining is generic (“if the tables below cannot answer the
+            question”) and names no examples, so the {abstain.length} should-decline questions test
+            whether a model recognises what the tables can’t answer.{" "}
+            {stated.length === 1 ? "One" : stated.length} of them (
+            {stated.map((q) => q.id).join(", ")}) is about something the prompt does state, the
+            years the data cover, so the results also give the decline rate on the other{" "}
+            {abstain.length - stated.length}. An earlier draft of the prompt listed the three
+            original should-decline cases by name; questions a04 to a08 were added when that was
+            removed.
           </p>
         </SectionHeading>
         <div className="rounded-lg border bg-card">
@@ -105,6 +124,11 @@ export default function EvaluationPage() {
                   </TableCell>
                   <TableCell className="hidden align-top whitespace-normal text-muted-foreground md:table-cell">
                     {q.tests}
+                    {q.scopeInPrompt ? (
+                      <span className="mt-1 block text-xs">
+                        Reported separately: {q.scopeInPrompt}
+                      </span>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

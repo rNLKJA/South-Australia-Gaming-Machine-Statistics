@@ -238,7 +238,7 @@ describe("SQLite in WebAssembly with the tidy tables", () => {
       const r = await run(g.sql)
       expect(r.rows.length, g.id).toBeGreaterThan(0)
     }
-    expect(GOLD_QUESTIONS.filter((g) => g.category === "abstain")).toHaveLength(3)
+    expect(GOLD_QUESTIONS.filter((g) => g.category === "abstain")).toHaveLength(8)
     expect(new Set(GOLD_QUESTIONS.map((g) => g.id)).size).toBe(GOLD_QUESTIONS.length)
   })
 

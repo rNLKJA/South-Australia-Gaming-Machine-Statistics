@@ -22,8 +22,10 @@ import {
   cellKey,
   compareResults,
   compareRuns,
+  GOLD_QUESTIONS,
   runToRows,
   summariseRun,
+  unpromptedAbstain,
   type EvalItemResult,
 } from "./sql-eval"
 import type { AiSettings, StructuredRequest } from "./types"
@@ -116,18 +118,22 @@ describe("Anthropic adapter (fetch mocked)", () => {
         fetch: mockFetch(status, body),
         maxRetries: 0,
       }).catch((e: AiError) => e)
-    expect(((await run(200, message("", { stop_reason: "refusal" }))) as AiError).kind).toBe(
-      "refusal"
-    )
-    expect(((await run(200, message("{", { stop_reason: "max_tokens" }))) as AiError).kind).toBe(
-      "truncated"
-    )
+    const refused = (await run(200, message("", { stop_reason: "refusal" }))) as AiError
+    expect(refused.kind).toBe("refusal")
+    // an unusable answer is still billed: the tokens travel with the error
+    expect(refused.usage).toEqual({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
+    expect(refused.model).toBe("claude-haiku-4-5")
+    const cut = (await run(200, message("{", { stop_reason: "max_tokens" }))) as AiError
+    expect(cut.kind).toBe("truncated")
+    expect(cut.usage?.outputTokens).toBe(20)
     const bad = (await run(401, {
       type: "error",
       error: { type: "authentication_error", message: `invalid x-api-key ${KEY}` },
     })) as AiError
     expect(bad.kind).toBe("invalid_key")
     expect(bad.detail).not.toContain(KEY)
+    // the provider's sentence, not the SDK's "401 {json}" wrapper
+    expect(bad.detail).toBe("invalid x-api-key [redacted]")
     expect(
       (
         (await run(429, {
@@ -199,10 +205,19 @@ describe("OpenAI adapter (fetch mocked)", () => {
     )
     const refused = completion("", {})
     refused.choices[0] = { message: { content: "", refusal: "no" }, finish_reason: "stop" } as never
-    expect(((await run(200, refused)) as AiError).kind).toBe("refusal")
-    expect(((await run(200, completion("{", { finish_reason: "length" }))) as AiError).kind).toBe(
-      "truncated"
-    )
+    const r = (await run(200, refused)) as AiError
+    expect(r.kind).toBe("refusal")
+    expect(r.usage).toEqual({ inputTokens: 50, outputTokens: 10, cachedInputTokens: 0 })
+    expect(r.model).toBe("gpt-5-mini-2026")
+    const filtered = (await run(
+      200,
+      completion("", { finish_reason: "content_filter" })
+    )) as AiError
+    expect(filtered.kind).toBe("refusal")
+    expect(filtered.usage?.inputTokens).toBe(50)
+    const cut = (await run(200, completion("{", { finish_reason: "length" }))) as AiError
+    expect(cut.kind).toBe("truncated")
+    expect(cut.usage?.outputTokens).toBe(10)
   })
 })
 
@@ -384,6 +399,24 @@ describe("structured calls with validation and auditing", () => {
     expect((noKey as AiError).kind).toBe("no_key")
     expect(await audit.list()).toHaveLength(1)
   })
+
+  it("keeps the billed tokens in the log when the model refuses or runs out of tokens", async () => {
+    const audit = indexedDbAuditStore(new IDBFactory())
+    for (const stop_reason of ["refusal", "max_tokens"]) {
+      await runAudited(audit, SQL_FEATURE, { question: "q" }, settings, KEY, REQ, SqlAnswerSchema, {
+        fetch: mockFetch(200, message("{", { stop_reason })),
+        maxRetries: 0,
+      }).catch((e: AiError) => e)
+    }
+    const entries = await audit.list()
+    expect(entries).toHaveLength(2)
+    for (const e of entries) {
+      expect(e.human_decision).toBe("no_output")
+      expect(e.usage).toEqual({ inputTokens: 500, outputTokens: 20, cachedInputTokens: 400 })
+      expect(e.model).toBe("claude-haiku-4-5")
+    }
+    expect(entries.map((e) => e.error?.split(":")[0]).sort()).toEqual(["refusal", "truncated"])
+  })
 })
 
 describe("the SQL prompt", () => {
@@ -403,6 +436,25 @@ describe("the SQL prompt", () => {
     expect(described.user).toBe("Question: How much?")
     expect(buildSqlRequest("x", tables, "bare").system).not.toContain("Domain notes")
     expect(buildSqlRequest("x".repeat(900), tables, "bare").user.length).toBeLessThan(520)
+  })
+
+  it("does not name the benchmark's should-decline cases in the prompt", () => {
+    // the decline rule is generic, so the abstain questions test recognition, not instruction-following
+    const system = buildSqlRequest("x", [], "described").system.toLowerCase()
+    const rules = system.split("domain notes")[0]
+    const cases = ["venue-level", "individual", "casino", "forecast", "suburb", "victoria"]
+    for (const word of [...cases, "online", "problem gambl", "age of"]) {
+      expect(rules).not.toContain(word)
+    }
+    // the domain notes list the licence categories (one is 'Casino') but say nothing about revenue
+    // by venue type, suburbs, other states or forecasts
+    for (const word of cases.filter((w) => w !== "casino")) expect(system).not.toContain(word)
+    expect(system).toContain("cannot answer the question")
+    const abstain = GOLD_QUESTIONS.filter((q) => q.category === "abstain")
+    expect(abstain.length).toBeGreaterThanOrEqual(8)
+    // only the forecast question relies on something the prompt states (the years covered)
+    expect(abstain.filter((q) => q.scopeInPrompt).map((q) => q.id)).toEqual(["a03"])
+    expect(abstain.filter(unpromptedAbstain)).toHaveLength(abstain.length - 1)
   })
 })
 
@@ -462,6 +514,33 @@ describe("evaluation scoring", () => {
     expect(s.outcomes.pass).toBe(3)
     expect(s.medianLatencyMs).toBe(100)
     expect(s.answeredBy).toEqual(["claude-haiku-4-5"])
+    expect(s.lenient.method).toBe("wilson")
+    expect(s.repeats).toBe(1)
+    expect(s.spread).toBeNull()
+    expect(s.abstentionUnprompted).toMatchObject({ n: 1, passes: 1 })
+  })
+
+  it("summarises repeated runs by per-question pass rates", () => {
+    const rep = (r: number, passes: boolean[]) =>
+      ["q1", "q2", "q3", "q4"].map((id, i) => ({ ...item(id, passes[i]), repeat: r }))
+    const items = [
+      ...rep(0, [true, true, false, false]),
+      ...rep(1, [true, false, false, false]),
+      ...rep(2, [true, true, false, true]),
+    ]
+    const s = summariseRun(items)
+    expect(s.n).toBe(4)
+    expect(s.attempts).toBe(12)
+    expect(s.repeats).toBe(3)
+    expect(s.lenient.method).toBe("bootstrap")
+    // pass rates 1, 2/3, 0, 1/3: mean 0.5
+    expect(s.lenient.estimate).toBeCloseTo(0.5, 12)
+    expect(s.lenient.passes).toBeCloseTo(2, 12)
+    expect(s.lenient.lower).toBeLessThan(0.5)
+    expect(s.lenient.upper).toBeGreaterThan(0.5)
+    expect(s.spread).toMatchObject({ perRepeat: [0.5, 0.25, 0.75], min: 0.25, max: 0.75, mixed: 2 })
+    expect(s.outcomes.pass).toBe(6)
+    expect(summariseRun(items)).toEqual(s)
   })
 
   it("compares two runs question by question", () => {
@@ -472,6 +551,14 @@ describe("evaluation scoring", () => {
     expect(c.difference.estimate).toBeCloseTo(0.4, 10)
     expect(c.mcnemarP).toBeCloseTo(0.5, 10)
     expect(compareRuns(a, b, 1)).toEqual(c)
+    expect(c.repeats).toEqual([1, 1])
+    // with repeats, questions are compared on their averaged pass rates and McNemar is not used
+    const a3 = [0, 1, 2].flatMap((r) => a.map((i) => ({ ...i, repeat: r })))
+    const cr = compareRuns(a3, b, 1)
+    expect(cr.repeats).toEqual([3, 1])
+    expect(cr.mcnemarP).toBeNull()
+    expect(cr.onlyA).toBeNull()
+    expect(cr.difference.estimate).toBeCloseTo(0.4, 10)
     const rows = runToRows({
       id: "r",
       startedAt: "t",
@@ -483,6 +570,6 @@ describe("evaluation scoring", () => {
       seed: 1,
     })
     expect(rows).toHaveLength(5)
-    expect(rows[0]).toMatchObject({ question_id: "q1", pass_lenient: true })
+    expect(rows[0]).toMatchObject({ question_id: "q1", pass_lenient: true, repeat: 1 })
   })
 })

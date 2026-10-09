@@ -1,6 +1,6 @@
 import type { CallOptions, ProviderResponse } from "./anthropic"
 import { AiError, kindFromStatus, scrubKey } from "./errors"
-import type { StructuredRequest } from "./types"
+import type { StructuredRequest, TokenUsage } from "./types"
 
 export const OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
@@ -63,21 +63,32 @@ export async function openaiStructured(
   }
   const body = (await res.json()) as ChatCompletion
   const choice = body.choices?.[0]
+  const answeredBy = body.model ?? model
+  // tokens are billed even when the answer is unusable: keep them on every error after this point
+  const usage: TokenUsage | null = body.usage
+    ? {
+        inputTokens: body.usage.prompt_tokens ?? 0,
+        outputTokens: body.usage.completion_tokens ?? 0,
+        cachedInputTokens: body.usage.prompt_tokens_details?.cached_tokens ?? 0,
+      }
+    : null
   if (choice?.message?.refusal) {
-    throw new AiError("refusal", { detail: scrubKey(choice.message.refusal, key) })
+    throw new AiError("refusal", {
+      detail: scrubKey(choice.message.refusal, key),
+      model: answeredBy,
+      usage,
+    })
   }
-  if (choice?.finish_reason === "content_filter") throw new AiError("refusal")
-  if (choice?.finish_reason === "length") throw new AiError("truncated")
+  if (choice?.finish_reason === "content_filter") {
+    throw new AiError("refusal", { detail: "content_filter", model: answeredBy, usage })
+  }
+  if (choice?.finish_reason === "length") {
+    throw new AiError("truncated", { model: answeredBy, usage })
+  }
   return {
     text: choice?.message?.content ?? "",
-    model: body.model ?? model,
-    usage: body.usage
-      ? {
-          inputTokens: body.usage.prompt_tokens ?? 0,
-          outputTokens: body.usage.completion_tokens ?? 0,
-          cachedInputTokens: body.usage.prompt_tokens_details?.cached_tokens ?? 0,
-        }
-      : null,
+    model: answeredBy,
+    usage,
     stopReason: choice?.finish_reason ?? null,
   }
 }

@@ -35,7 +35,7 @@ import {
 } from "@/lib/ai/sql-eval"
 import { toCsv } from "@/lib/csv"
 import { downloadText } from "@/lib/download-blob"
-import { fmtPct } from "@/lib/format"
+import { fmtPct, signed } from "@/lib/format"
 import { createBrowserEngine, type SqlEngine } from "@/lib/sql/browser"
 import type { PromptVariant, SchemaTable } from "@/lib/sql/schema"
 import { DEFAULT_SEED } from "@/lib/stats/rng"
@@ -67,7 +67,7 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
-function newRun(provider: string, model: string, variant: PromptVariant): EvalRun {
+function newRun(provider: string, model: string, variant: PromptVariant, repeats: number): EvalRun {
   return {
     id: `run-${Date.now().toString(36)}`,
     startedAt: nowIso(),
@@ -77,16 +77,24 @@ function newRun(provider: string, model: string, variant: PromptVariant): EvalRu
     variant,
     items: [],
     seed: DEFAULT_SEED,
+    repeats,
   }
 }
+
+type Repeats = "1" | "3"
 
 const pct = (x: number) => fmtPct(x, 0)
 const ci = (a: { estimate: number; lower: number; upper: number }) =>
   `${pct(a.estimate)} (${pct(a.lower)}–${pct(a.upper)})`
+/** A pass count: whole with one repeat, one decimal when it is a sum of pass rates. */
+const passes = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1))
+/** Percentage points with a typographic minus: "−17". */
+const points = (x: number) => signed(x * 100, (v) => v.toFixed(0))
 
 export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
   const { settings, hasKey, keyFor } = useAiSettings()
   const [variant, setVariant] = useState<PromptVariant>("described")
+  const [repeatChoice, setRepeatChoice] = useState<Repeats>("1")
   const [runs, setRuns] = useState<EvalRun[]>([])
   const [current, setCurrent] = useState<EvalRun | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -105,7 +113,9 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
 
   const model = activeModel(settings)
   const n = GOLD_QUESTIONS.length
-  const estimate = estimateCostUsd(model, n * EST_INPUT, n * EST_OUTPUT)
+  const k = Number(repeatChoice)
+  const requests = n * k
+  const estimate = estimateCostUsd(model, requests * EST_INPUT, requests * EST_OUTPUT)
 
   const runSql = async (sql: string): Promise<ResultTable> => {
     const r = await engine.current!.query(sql)
@@ -117,10 +127,13 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
     setError(null)
     stop.current = false
     const key = keyFor(settings.provider)
-    const base = newRun(settings.provider, model, variant)
+    const base = newRun(settings.provider, model, variant, k)
     let items: EvalItemResult[] = []
     setCurrent(base)
-    for (const q of GOLD_QUESTIONS) {
+    const plan = Array.from({ length: k }, (_, repeat) =>
+      GOLD_QUESTIONS.map((q) => ({ q, repeat }))
+    ).flat()
+    for (const { q, repeat } of plan) {
       if (stop.current) break
       if (q.sql && !references.current.has(q.id)) {
         references.current.set(q.id, await runSql(q.sql))
@@ -130,7 +143,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
         const { result, entry } = await runAudited(
           auditStore(),
           SQL_EVAL_FEATURE,
-          { question_id: q.id, question: q.question, prompt_variant: variant },
+          { question_id: q.id, question: q.question, prompt_variant: variant, repeat: repeat + 1 },
           settings,
           key,
           buildSqlRequest(q.question, schema, variant),
@@ -154,6 +167,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
           cachedInputTokens: result.usage?.cachedInputTokens ?? null,
           auditId: entry.id,
           answeredBy: result.model,
+          repeat,
         }
       } catch (e) {
         const err = e instanceof AiError ? e : new AiError("unknown")
@@ -178,6 +192,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
           cachedInputTokens: err.usage?.cachedInputTokens ?? null,
           auditId: null,
           answeredBy: err.model,
+          repeat,
         }
       }
       items = [...items, item]
@@ -185,7 +200,13 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
     }
     setCurrent(null)
     if (items.length) {
-      const run: EvalRun = { ...base, items, finishedAt: nowIso() }
+      // a stopped run keeps only the repeats it started
+      const run: EvalRun = {
+        ...base,
+        items,
+        finishedAt: nowIso(),
+        repeats: Math.max(...items.map((i) => (i.repeat ?? 0) + 1)),
+      }
       const next = [run, ...runs].slice(0, MAX_RUNS)
       setRuns(next)
       saveRuns(next)
@@ -239,8 +260,8 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               Run the evaluation
             </h2>
             <p className="mt-1 max-w-[65ch] text-sm text-muted-foreground">
-              {n} questions, one request each, to {PROVIDER_LABEL[settings.provider]} ({model}) with
-              your key. Results stay in this browser; every call is in the AI log.
+              {n} questions, one request each per repeat, to {PROVIDER_LABEL[settings.provider]} (
+              {model}) with your key. Results stay in this browser; every call is in the AI log.
             </p>
           </div>
           <AiSettingsDialog />
@@ -255,6 +276,15 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               { value: "bare", label: "Bare schema (ablation)" },
             ]}
           />
+          <Segmented
+            label="Repeats"
+            value={repeatChoice}
+            onChange={setRepeatChoice}
+            options={[
+              { value: "1", label: "Once" },
+              { value: "3", label: "3 times" },
+            ]}
+          />
           {current ? (
             <Button variant="outline" onClick={() => (stop.current = true)}>
               <Square aria-hidden />
@@ -264,7 +294,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={start}>
                 <Play aria-hidden />
-                Start {n} requests
+                Start {requests} requests
               </Button>
               <Button variant="ghost" onClick={() => setConfirming(false)}>
                 Cancel
@@ -279,7 +309,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
         </div>
         {confirming ? (
           <p className="mt-3 text-sm text-ink-soft">
-            This sends {n} requests with your key.{" "}
+            This sends {requests} requests with your key.{" "}
             {estimate != null
               ? `At list prices that is roughly US$${estimate.toFixed(2)} (an estimate from about ${EST_INPUT.toLocaleString("en-AU")} input and ${EST_OUTPUT} output tokens per question; prompt caching usually makes it less).`
               : "The cost depends on the model you chose."}
@@ -299,7 +329,9 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
         {current ? (
           <p role="status" className="mt-3 flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" aria-hidden />
-            Question {Math.min(current.items.length + 1, n)} of {n}…
+            {(current.repeats ?? 1) > 1
+              ? `Repeat ${Math.min(Math.floor(current.items.length / n) + 1, current.repeats ?? 1)} of ${current.repeats}, question ${(current.items.length % n) + 1} of ${n}…`
+              : `Question ${Math.min(current.items.length + 1, n)} of ${n}…`}
           </p>
         ) : null}
       </section>
@@ -319,17 +351,21 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
             <Metric
               label="Execution accuracy"
               value={ci(summary.lenient)}
-              detail={`${summary.lenient.passes} of ${summary.n} questions; Wilson 95% CI`}
+              detail={
+                summary.repeats > 1
+                  ? `mean pass rate over ${summary.n} questions × ${summary.repeats} repeats; bootstrap 95% CI over questions`
+                  : `${summary.lenient.passes} of ${summary.n} questions; Wilson 95% CI`
+              }
             />
             <Metric
               label="Answerable questions"
               value={ci(summary.answerable)}
-              detail={`${summary.answerable.passes} of ${summary.answerable.n}`}
+              detail={`${passes(summary.answerable.passes)} of ${summary.answerable.n}`}
             />
             <Metric
               label="Declined when it should"
-              value={`${summary.abstention.passes} of ${summary.abstention.n}`}
-              detail="Questions the tables can’t answer"
+              value={`${passes(summary.abstention.passes)} of ${summary.abstention.n}`}
+              detail={`${passes(summary.abstentionUnprompted.passes)} of ${summary.abstentionUnprompted.n} where the prompt doesn’t state the scope`}
             />
             <Metric
               label="Tokens"
@@ -346,6 +382,15 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               }`}
             />
           </dl>
+          {summary.spread ? (
+            <p className="max-w-[75ch] text-sm leading-relaxed text-ink-soft">
+              <strong className="text-foreground">Run-to-run spread.</strong> Accuracy by repeat:{" "}
+              {summary.spread.perRepeat.map(pct).join(", ")} (range {pct(summary.spread.min)} to{" "}
+              {pct(summary.spread.max)}). {summary.spread.mixed} of {summary.n} questions passed in
+              some repeats and failed in others; their pass rates sit between 0 and 1 in the figures
+              above.
+            </p>
+          ) : null}
           <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
             <div className="rounded-lg border bg-card">
               <Table>
@@ -367,7 +412,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                         {CATEGORY_LABEL[c.category]}
                       </TableHead>
                       <TableCell className="tabular text-right">
-                        {c.passes} / {c.n}
+                        {passes(c.passes)} / {c.n}
                       </TableCell>
                       <TableCell className="tabular text-right">{c.n ? ci(c.ci) : "–"}</TableCell>
                     </TableRow>
@@ -378,9 +423,10 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                 Outcomes:{" "}
                 {Object.entries(summary.outcomes)
                   .filter(([, v]) => v > 0)
-                  .map(([k, v]) => `${OUTCOME_LABEL[k as keyof typeof OUTCOME_LABEL]} ${v}`)
+                  .map(([o, v]) => `${OUTCOME_LABEL[o as keyof typeof OUTCOME_LABEL]} ${v}`)
                   .join(" · ")}
-                . Strict accuracy (no extra columns): {ci(summary.strict)}.
+                {summary.repeats > 1 ? ` (${summary.attempts} attempts)` : ""}. Strict accuracy (no
+                extra columns): {ci(summary.strict)}.
               </p>
             </div>
             <div className="max-h-[30rem] overflow-auto rounded-lg border bg-card">
@@ -392,22 +438,27 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shown.items.map((i) => {
-                    const q = GOLD_QUESTIONS.find((g) => g.id === i.id)!
+                  {GOLD_QUESTIONS.filter((g) => shown.items.some((i) => i.id === g.id)).map((q) => {
+                    const tries = shown.items
+                      .filter((i) => i.id === q.id)
+                      .sort((a, b) => (a.repeat ?? 0) - (b.repeat ?? 0))
+                    const first = tries[0]
+                    const passed = tries.filter((i) => i.lenient).length
+                    const failed = tries.find((i) => !i.lenient)
                     return (
-                      <TableRow key={i.id}>
+                      <TableRow key={q.id}>
                         <TableCell className="align-top whitespace-normal">
                           <span className="tabular mr-1.5 text-xs text-muted-foreground">
-                            {i.id}
+                            {q.id}
                           </span>
                           {q.question}
-                          {i.sql ? (
+                          {first.sql ? (
                             <details className="mt-1">
                               <summary className="cursor-pointer text-xs text-muted-foreground">
-                                Model’s SQL
+                                Model’s SQL{tries.length > 1 ? " (first repeat)" : ""}
                               </summary>
                               <pre className="mt-1 overflow-x-auto rounded bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
-                                {i.sql}
+                                {first.sql}
                               </pre>
                             </details>
                           ) : null}
@@ -415,12 +466,23 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                         <TableCell className="align-top whitespace-normal">
                           <span
                             className={
-                              i.lenient ? "font-medium text-teal" : "font-medium text-terracotta"
+                              passed === tries.length
+                                ? "font-medium text-teal"
+                                : "font-medium text-terracotta"
                             }
                           >
-                            {OUTCOME_LABEL[i.outcome]}
+                            {tries.length > 1
+                              ? `Passed ${passed} of ${tries.length}`
+                              : OUTCOME_LABEL[first.outcome]}
                           </span>
-                          <span className="block text-xs text-muted-foreground">{i.detail}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {tries.length > 1
+                              ? tries.map((i) => OUTCOME_LABEL[i.outcome]).join(" · ")
+                              : first.detail}
+                            {tries.length > 1 && failed
+                              ? `; repeat ${(failed.repeat ?? 0) + 1}: ${failed.detail}`
+                              : ""}
+                          </span>
                         </TableCell>
                       </TableRow>
                     )
@@ -485,6 +547,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                       <TableCell>{r.variant}</TableCell>
                       <TableCell className="tabular text-right">
                         {ci(s.lenient)} · n = {s.n}
+                        {s.repeats > 1 ? ` × ${s.repeats}` : ""}
                       </TableCell>
                     </TableRow>
                   )
@@ -496,9 +559,11 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
             <div className="rounded-lg border bg-card p-4 sm:p-6">
               <h3 className="font-serif text-lg font-semibold">Compare two runs</h3>
               <p className="mt-1 max-w-[70ch] text-sm text-muted-foreground">
-                Paired on the same questions: McNemar’s exact test on the questions only one run got
-                right, and a bootstrap interval for the difference in accuracy (
-                {(4000).toLocaleString("en-AU")} resamples of questions, seed {DEFAULT_SEED}).
+                Paired on the same questions: a bootstrap interval for the difference in accuracy (
+                {(4000).toLocaleString("en-AU")} resamples of questions, seed {DEFAULT_SEED}), and,
+                for two single runs, McNemar’s exact test on the questions only one run got right.
+                With repeats, each question’s pass rate is averaged over its repeats first, so
+                run-to-run noise is not mistaken for a difference between configurations.
               </p>
               <div className="mt-4 flex flex-wrap gap-4">
                 {(["A", "B"] as const).map((label, k) => (
@@ -518,7 +583,8 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                       </option>
                       {runs.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.model}, {r.variant},{" "}
+                          {r.model}, {r.variant}
+                          {(r.repeats ?? 1) > 1 ? ` ×${r.repeats}` : ""},{" "}
                           {new Date(r.startedAt).toLocaleTimeString("en-AU")}
                         </option>
                       ))}
@@ -528,16 +594,29 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
               </div>
               {comparison ? (
                 <p className="mt-4 text-sm leading-relaxed">
-                  Both right on {comparison.c.bothPass}, only A on {comparison.c.onlyA}, only B on{" "}
-                  {comparison.c.onlyB}, neither on {comparison.c.neither} (n = {comparison.c.n}).
+                  {comparison.c.mcnemarP != null ? (
+                    <>
+                      Both right on {comparison.c.bothPass}, only A on {comparison.c.onlyA}, only B
+                      on {comparison.c.onlyB}, neither on {comparison.c.neither} (n ={" "}
+                      {comparison.c.n}).{" "}
+                    </>
+                  ) : (
+                    <>
+                      {comparison.c.n} questions, pass rates averaged over {comparison.c.repeats[0]}{" "}
+                      and {comparison.c.repeats[1]} repeats.{" "}
+                    </>
+                  )}
                   Accuracy difference A − B:{" "}
                   <strong>
-                    {(comparison.c.difference.estimate * 100).toFixed(0)} points (95% CI{" "}
-                    {(comparison.c.difference.lower * 100).toFixed(0)} to{" "}
-                    {(comparison.c.difference.upper * 100).toFixed(0)})
+                    {points(comparison.c.difference.estimate)} points (95% CI{" "}
+                    {points(comparison.c.difference.lower)} to{" "}
+                    {points(comparison.c.difference.upper)})
                   </strong>
-                  ; McNemar exact p = {comparison.c.mcnemarP.toFixed(3)}. With {comparison.c.n}{" "}
-                  questions only large differences can be told apart from chance.
+                  {comparison.c.mcnemarP != null
+                    ? `; McNemar exact p = ${comparison.c.mcnemarP.toFixed(3)}`
+                    : ""}
+                  . With {comparison.c.n} questions only large differences can be told apart from
+                  chance.
                 </p>
               ) : (
                 <p className="mt-4 text-sm text-muted-foreground">Choose two different runs.</p>

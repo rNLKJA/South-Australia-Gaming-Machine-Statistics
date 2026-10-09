@@ -7,6 +7,9 @@ import type { StructuredRequest } from "./types"
  * "Ask the data": a language model, called from the visitor's browser with their own key, turns a
  * question into one read-only SQLite query over the tidy tables. The query is shown to the visitor,
  * checked against the allow-list (src/lib/sql/guard.ts) and only runs when they choose to run it.
+ *
+ * The rule for declining is deliberately generic: the evaluation's "should decline" questions test
+ * whether a model recognises what the tables can't answer, so the prompt names no examples.
  */
 
 export const SQL_FEATURE = "ask-the-data"
@@ -61,7 +64,7 @@ export function buildSqlRequest(
   tables: readonly SchemaTable[],
   variant: PromptVariant
 ): StructuredRequest {
-  const system = `You write SQLite queries for a public, read-only database of South Australian gaming-machine statistics (Consumer and Business Services releases, FY 2009-10 to FY 2024-25). The data are aggregates; there is nothing about individual people or venues.
+  const system = `You write SQLite queries for a public, read-only database of South Australian gaming-machine statistics (Consumer and Business Services releases, FY 2009-10 to FY 2024-25). The data are published aggregates.
 
 Rules:
 - Answer with exactly one SQLite SELECT statement (a WITH clause is fine). Never write to the database.
@@ -69,7 +72,7 @@ Rules:
 - Return only the columns needed to answer the question, with readable aliases.
 - Do not round numbers unless the question asks for rounding.
 - Add ORDER BY when the question asks for a ranking or a list in order, and LIMIT 200 or less unless the result is a single row.
-- If the question cannot be answered from these tables (for example it needs venue-level data, the casino's revenue, forecasts or anything outside FY 2009-10 to FY 2024-25), set answerable to false and sql to an empty string.
+- If the tables below cannot answer the question, set answerable to false and sql to an empty string instead of guessing.
 - Put any interpretation you had to choose in assumptions. Do not give advice about gambling.
 
 ${variant === "described" ? `${DOMAIN_NOTES}\n\n` : ""}Schema:

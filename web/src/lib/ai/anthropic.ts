@@ -62,30 +62,33 @@ export async function anthropicStructured(
           ...(info.temperature ? { temperature: 0 } : {}),
           output_config: { format, ...(info.effort ? { effort: info.effort } : {}) },
         })
+    // tokens are billed even when the answer is unusable: keep them on every error after this point
+    const usage: TokenUsage | null = msg.usage
+      ? {
+          inputTokens:
+            msg.usage.input_tokens +
+            (msg.usage.cache_read_input_tokens ?? 0) +
+            (msg.usage.cache_creation_input_tokens ?? 0),
+          outputTokens: msg.usage.output_tokens,
+          cachedInputTokens: msg.usage.cache_read_input_tokens ?? 0,
+        }
+      : null
     if (msg.stop_reason === "refusal") {
       const details = (msg as { stop_details?: { category?: string | null } | null }).stop_details
-      throw new AiError("refusal", { detail: details?.category ?? null, model: msg.model })
+      throw new AiError("refusal", {
+        detail: details?.category ?? null,
+        model: msg.model,
+        usage,
+      })
     }
-    if (msg.stop_reason === "max_tokens") throw new AiError("truncated", { model: msg.model })
+    if (msg.stop_reason === "max_tokens") {
+      throw new AiError("truncated", { model: msg.model, usage })
+    }
     const text = msg.content
       .filter((b): b is Extract<typeof b, { type: "text" }> => b.type === "text")
       .map((b) => b.text)
       .join("")
-    return {
-      text,
-      model: msg.model,
-      usage: msg.usage
-        ? {
-            inputTokens:
-              msg.usage.input_tokens +
-              (msg.usage.cache_read_input_tokens ?? 0) +
-              (msg.usage.cache_creation_input_tokens ?? 0),
-            outputTokens: msg.usage.output_tokens,
-            cachedInputTokens: msg.usage.cache_read_input_tokens ?? 0,
-          }
-        : null,
-      stopReason: msg.stop_reason ?? null,
-    }
+    return { text, model: msg.model, usage, stopReason: msg.stop_reason ?? null }
   } catch (e) {
     throw toAiError(e, key)
   }
@@ -99,9 +102,12 @@ function toAiError(e: unknown, key: string): AiError {
   }
   if (e instanceof Anthropic.APIError) {
     const type = (e as { type?: string | null }).type ?? null
+    // prefer the provider's own sentence ("invalid x-api-key") over the SDK's "401 {json}" message
+    const body = (e as { error?: { error?: { message?: unknown } } }).error
+    const message = typeof body?.error?.message === "string" ? body.error.message : e.message
     return new AiError(kindFromStatus(e.status ?? 0, type), {
       status: e.status ?? null,
-      detail: scrubKey(e.message, key),
+      detail: scrubKey(message, key),
     })
   }
   return new AiError("unknown", { detail: e instanceof Error ? scrubKey(e.message, key) : null })
