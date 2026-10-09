@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest"
 
 import { classIndex, mean, quantileBreaks, round } from "./stats"
 import { toCsv } from "./csv"
-import { fmtAudCompact, fmtChange, fmtMillions, fmtPct } from "./format"
+import {
+  fmtAudCompact,
+  fmtAxisMillions,
+  fmtChange,
+  fmtDecimal,
+  fmtInterval,
+  fmtMillions,
+  fmtP,
+  fmtPct,
+  signed,
+} from "./format"
 
 describe("stats helpers", () => {
   it("computes quantile breaks and classes", () => {
@@ -42,5 +52,20 @@ describe("format", () => {
     expect(fmtPct(0.4284)).toBe("42.8%")
     expect(fmtChange(0.055)).toBe("+5.5%")
     expect(fmtChange(-0.25)).toBe("−25.0%")
+  })
+
+  it("formats intervals, signs, p-values and axis labels", () => {
+    const m = (v: number) => fmtMillions(v, 1)
+    expect(fmtInterval(9.32, 5.84, 12.78, m)).toBe("$9.3m (95% CI $5.8m to $12.8m)")
+    expect(fmtInterval(null, 1, 2, m)).toBe("–")
+    expect(signed(9.32, m)).toBe("+$9.3m")
+    expect(signed(-2.7, m)).toBe("−$2.7m")
+    expect(signed(-0.02, m)).toBe("$0.0m")
+    expect(fmtP(0.0004)).toBe("< 0.001")
+    expect(fmtP(0.005)).toBe("0.005")
+    expect(fmtP(0.2345)).toBe("0.23")
+    expect(fmtDecimal(-0.5099)).toBe("−0.51")
+    expect(fmtAxisMillions(-30)).toBe("−$30m")
+    expect(fmtAxisMillions(90)).toBe("$90m")
   })
 })

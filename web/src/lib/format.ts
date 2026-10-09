@@ -58,3 +58,41 @@ export function fmtChange(fraction: number | null | undefined, digits = 1): stri
   const s = (fraction * 100).toFixed(digits)
   return fraction > 0 ? `+${s}%` : `${s.replace("-", "−")}%`
 }
+
+/** "$9.3m (95% CI $5.9m to $12.8m)": an estimate with its interval in one formatter. */
+export function fmtInterval(
+  est: number | null | undefined,
+  lower: number | null | undefined,
+  upper: number | null | undefined,
+  fmt: (v: number) => string
+): string {
+  if (est == null || lower == null || upper == null) return "–"
+  return `${fmt(est)} (95% CI ${fmt(lower)} to ${fmt(upper)})`
+}
+
+/** Prefix a formatted value with + or − (the typographic minus). */
+export function signed(v: number, fmt: (v: number) => string): string {
+  if (!Number.isFinite(v)) return "–"
+  const s = fmt(Math.abs(v))
+  if (s === fmt(0)) return s
+  return v > 0 ? `+${s}` : v < 0 ? `−${s}` : s
+}
+
+/** p-values: "< 0.001" below a thousandth, otherwise two or three significant digits. */
+export function fmtP(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return "–"
+  if (p < 0.001) return "< 0.001"
+  return p < 0.01 ? p.toFixed(3) : p.toFixed(2)
+}
+
+/** A plain decimal with a typographic minus: -0.51 -> "−0.51". */
+export function fmtDecimal(v: number | null | undefined, digits = 2): string {
+  if (v == null || !Number.isFinite(v)) return "–"
+  return v.toFixed(digits).replace(/^-/, "−")
+}
+
+/** Axis labels for $ million values with a typographic minus: -30 -> "−$30m". */
+export function fmtAxisMillions(v: number): string {
+  const r = Math.round(v)
+  return r < 0 ? `−$${Math.abs(r)}m` : `$${r}m`
+}
