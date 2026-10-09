@@ -1,0 +1,263 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens: civic data journalism.
+ * Newsprint paper and ink, a deep teal for interface and links, South Australian ochre and
+ * terracotta for data emphasis. Figures are tabular everywhere.
+ */
+:root {
+  --radius: 0.375rem;
+
+  --background: #f6f2e9;
+  --foreground: #1d1b17;
+  --card: #fbf8f1;
+  --card-foreground: #1d1b17;
+  --popover: #fdfbf6;
+  --popover-foreground: #1d1b17;
+  --primary: #0e4f53;
+  --primary-foreground: #f6f2e9;
+  --secondary: #ece5d6;
+  --secondary-foreground: #1d1b17;
+  --muted: #ece6da;
+  --muted-foreground: #5b554a;
+  --accent: #efe4d2;
+  --accent-foreground: #1d1b17;
+  --destructive: #a3392b;
+  --border: #dbd2c0;
+  --input: #cfc5b0;
+  --ring: #0e4f53;
+
+  --ink-soft: #3a362f;
+  --rule: #1d1b17;
+  --teal: #0e4f53;
+  --teal-soft: #d8e6e2;
+  --terracotta: #b0502b;
+  --terracotta-soft: #f2dfd2;
+  --ochre: #b97f22;
+  --ochre-soft: #f3e6cb;
+
+  --chart-1: #b0502b;
+  --chart-2: #1d6a6c;
+  --chart-3: #c68a2e;
+  --chart-4: #5b6670;
+  --chart-5: #7d8a5a;
+  --chart-6: #8a5a6e;
+  --chart-7: #a89a7c;
+  --chart-grid: #e1d9c9;
+  --chart-axis: #6f685c;
+  --chart-band: rgb(176 80 43 / 0.08);
+  --chart-gap: rgb(91 102 112 / 0.1);
+
+  --sidebar: #fbf8f1;
+  --sidebar-foreground: #1d1b17;
+  --sidebar-primary: #0e4f53;
+  --sidebar-primary-foreground: #f6f2e9;
+  --sidebar-accent: #efe4d2;
+  --sidebar-accent-foreground: #1d1b17;
+  --sidebar-border: #dbd2c0;
+  --sidebar-ring: #0e4f53;
+}
+
+.dark {
+  --background: #121615;
+  --foreground: #ebe5d8;
+  --card: #181e1d;
+  --card-foreground: #ebe5d8;
+  --popover: #1b2120;
+  --popover-foreground: #ebe5d8;
+  --primary: #6cbcb1;
+  --primary-foreground: #0d1211;
+  --secondary: #222a28;
+  --secondary-foreground: #ebe5d8;
+  --muted: #1f2725;
+  --muted-foreground: #a8a294;
+  --accent: #283230;
+  --accent-foreground: #ebe5d8;
+  --destructive: #e07a63;
+  --border: #2d3633;
+  --input: #3a4440;
+  --ring: #6cbcb1;
+
+  --ink-soft: #cfc8b9;
+  --rule: #ebe5d8;
+  --teal: #6cbcb1;
+  --teal-soft: #1c302d;
+  --terracotta: #e2825a;
+  --terracotta-soft: #3a2419;
+  --ochre: #e3ac52;
+  --ochre-soft: #352a16;
+
+  --chart-1: #e2825a;
+  --chart-2: #6cbcb1;
+  --chart-3: #e3ac52;
+  --chart-4: #9aa7b3;
+  --chart-5: #a9b67f;
+  --chart-6: #c690a8;
+  --chart-7: #c7b998;
+  --chart-grid: #29322f;
+  --chart-axis: #9a9486;
+  --chart-band: rgb(226 130 90 / 0.12);
+  --chart-gap: rgb(154 167 179 / 0.12);
+
+  --sidebar: #181e1d;
+  --sidebar-foreground: #ebe5d8;
+  --sidebar-primary: #6cbcb1;
+  --sidebar-primary-foreground: #0d1211;
+  --sidebar-accent: #283230;
+  --sidebar-accent-foreground: #ebe5d8;
+  --sidebar-border: #2d3633;
+  --sidebar-ring: #6cbcb1;
+}
+
+@theme inline {
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-heading: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-soft: var(--terracotta-soft);
+  --color-ochre: var(--ochre);
+  --color-ochre-soft: var(--ochre-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* Editorial type scale (1.25 ratio from 1rem). */
+  --text-kicker: 0.75rem;
+  --text-kicker--letter-spacing: 0.08em;
+  --text-display: clamp(2.25rem, 1.6rem + 2.6vw, 3.6rem);
+  --text-display--line-height: 1.05;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern", "liga";
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-serif tracking-tight text-balance;
+    font-optical-sizing: auto;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  a {
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--ochre-soft);
+    color: var(--foreground);
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .kicker {
+    @apply font-sans text-kicker font-semibold uppercase;
+    letter-spacing: 0.08em;
+  }
+  .link {
+    @apply text-teal underline decoration-teal/40 underline-offset-[0.18em] transition-colors hover:decoration-teal;
+  }
+  .double-rule {
+    border-top: 3px double var(--rule);
+  }
+  .hairline {
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* MapLibre: keep attribution and controls on-brand. */
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-public-sans), sans-serif;
+  font-size: 11px;
+}
+.dark .maplibregl-ctrl-attrib {
+  background: rgb(18 22 21 / 0.8) !important;
+  color: #cfc8b9;
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: #cfc8b9;
+}
+.dark .maplibregl-ctrl-group {
+  background: #1b2120;
+}
+.dark .maplibregl-ctrl-group button + button {
+  border-top-color: #2d3633;
+}
+.dark .maplibregl-ctrl-icon {
+  filter: invert(0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
