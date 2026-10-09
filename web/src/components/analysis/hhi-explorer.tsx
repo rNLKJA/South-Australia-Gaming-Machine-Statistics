@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Legend, TrendChart, type Datum } from "@/components/charts/trend-chart"
 import { Segmented } from "@/components/common/segmented"
 import { fmtInt } from "@/lib/format"
-import { fyShort, monthLabel } from "@/lib/fy"
+import { fyAxis, fyShort, monthLabel } from "@/lib/fy"
 
 import { IntervalChart } from "./interval-chart"
 
@@ -124,8 +124,12 @@ export function HhiExplorer({
           }))}
           color="var(--chart-2)"
           valueFormat={(x) => fmtInt(x)}
-          tickFormat={(k) => fyShort(k).replace(/^20/, "’").replace("/", "–")}
-          reference={{ y: 2500, label: "2,500: “highly concentrated” (US 2010 guidelines)" }}
+          tickFormat={fyAxis}
+          reference={{
+            y: 2500,
+            label: "2,500: “highly concentrated” (US 2010 guidelines)",
+            shortLabel: "2,500: “highly concentrated”",
+          }}
           yDomain={[2000, 4000]}
           yTicks={[2000, 2500, 3000, 3500, 4000]}
           height={280}

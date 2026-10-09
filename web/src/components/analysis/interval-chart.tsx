@@ -12,6 +12,9 @@ import {
   YAxis,
 } from "recharts"
 
+import { useElementWidth } from "@/hooks/use-element-width"
+import { thinTicks, ticksThatFit } from "@/lib/ticks"
+
 export interface IntervalDatum {
   key: string
   label: string
@@ -23,6 +26,10 @@ export interface IntervalDatum {
 }
 
 const TICK = { fill: "var(--chart-axis)", fontSize: 12 }
+const Y_AXIS_WIDTH = 64
+const MARGIN_RIGHT = 16
+/** Approximate width of one character of the 11px reference label. */
+const LABEL_CHAR_PX = 6
 
 /**
  * Point estimates with 95% intervals by category (financial years). Missing categories keep their
@@ -47,7 +54,8 @@ export function IntervalChart({
   tickFormat?: (key: string) => string
   ariaLabel: string
   height?: number
-  reference?: { y: number; label: string }
+  /** A dashed horizontal line; `shortLabel` replaces `label` when the full text would not fit. */
+  reference?: { y: number; label: string; shortLabel?: string }
   yDomain?: [number | "auto" | "dataMin", number | "auto" | "dataMax"]
   /** Explicit y-axis ticks (otherwise recharts picks them from the domain). */
   yTicks?: number[]
@@ -60,10 +68,27 @@ export function IntervalChart({
         : null,
   }))
   const labelOf = new Map(data.map((d) => [d.key, d]))
+  // Evenly spaced ticks that fit the measured width, always keeping the latest year (as TrendChart).
+  const [ref, width] = useElementWidth<HTMLDivElement>()
+  const tickText = (k: string) => (tickFormat ? tickFormat(k) : k)
+  const keys = data.map((d) => d.key)
+  const longest = Math.max(1, ...keys.map((k) => tickText(k).length))
+  const plotWidth = width - Y_AXIS_WIDTH - MARGIN_RIGHT
+  const ticks = thinTicks(keys, width ? ticksThatFit(plotWidth, longest) : 8)
+  const referenceLabel =
+    reference?.shortLabel && width && reference.label.length * LABEL_CHAR_PX > plotWidth
+      ? reference.shortLabel
+      : reference?.label
   return (
-    <div role="img" aria-label={ariaLabel} style={{ height }} className="w-full select-none">
+    <div
+      ref={ref}
+      role="img"
+      aria-label={ariaLabel}
+      style={{ height }}
+      className="w-full select-none"
+    >
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={rows} margin={{ top: 10, right: 8, bottom: 0, left: 0 }}>
+        <ComposedChart data={rows} margin={{ top: 10, right: MARGIN_RIGHT, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
           {reference ? (
             <ReferenceLine
@@ -71,7 +96,7 @@ export function IntervalChart({
               stroke="var(--chart-axis)"
               strokeDasharray="4 4"
               label={{
-                value: reference.label,
+                value: referenceLabel,
                 position: "insideTopLeft",
                 fill: "var(--chart-axis)",
                 fontSize: 11,
@@ -83,15 +108,15 @@ export function IntervalChart({
             tick={TICK}
             tickLine={false}
             axisLine={{ stroke: "var(--chart-axis)" }}
-            tickFormatter={(k: string) => (tickFormat ? tickFormat(k) : k)}
-            interval="preserveStartEnd"
-            minTickGap={6}
+            ticks={ticks}
+            interval={0}
+            tickFormatter={tickText}
           />
           <YAxis
             tick={TICK}
             tickLine={false}
             axisLine={false}
-            width={64}
+            width={Y_AXIS_WIDTH}
             domain={yDomain ?? ["auto", "auto"]}
             {...(yTicks ? { ticks: yTicks } : {})}
             tickFormatter={(v: number) => (axisFormat ?? valueFormat)(v)}
