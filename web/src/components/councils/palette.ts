@@ -5,6 +5,12 @@ export const RAMP = {
 } as const
 
 export const NO_DATA = { light: "#e4ded1", dark: "#2a302e" } as const
+/** Areas that were published but have no value for the measure (FY 2019/20 machine counts). */
+export const NOT_PUBLISHED = { light: "#b8c6c4", dark: "#506a68" } as const
+/** Choropleth fill opacity: lower in dark mode so basemap labels stay legible over the fills. */
+export const FILL_OPACITY = { light: 0.88, dark: 0.7 } as const
+/** Halo for basemap labels drawn above the fills in dark mode. */
+export const LABEL_HALO = { light: "#fbf8f1", dark: "#121615" } as const
 export const OUTLINE = { light: "#7c7466", dark: "#8d9a95" } as const
 export const GROUP_OUTLINE = { light: "#1d1b17", dark: "#ebe5d8" } as const
 export const SELECT_OUTLINE = { light: "#0e4f53", dark: "#6cbcb1" } as const

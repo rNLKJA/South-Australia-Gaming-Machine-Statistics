@@ -25,10 +25,13 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
   const [active, setActive] = useState(-1)
   const listId = useId()
   const abort = useRef<AbortController | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  /** The label of the place just picked: filling it into the box must not search again. */
+  const picked = useRef<string | null>(null)
 
   useEffect(() => {
     const term = q.trim()
-    if (term.length < 3) return
+    if (term.length < 3 || q === picked.current) return
     const t = setTimeout(async () => {
       abort.current?.abort()
       const ctrl = new AbortController()
@@ -48,7 +51,8 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
         setResults(body.places)
         setActive(body.places.length ? 0 : -1)
         setState(body.places.length ? "idle" : "empty")
-        setOpen(true)
+        // Only reopen the list for someone still typing in the box.
+        if (document.activeElement === inputRef.current) setOpen(true)
       } catch (e) {
         if ((e as Error).name === "AbortError") return
         setState("error")
@@ -60,10 +64,23 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
     return () => clearTimeout(t)
   }, [q])
 
+  // Abandon any request still in flight when the explorer unmounts.
+  useEffect(() => () => abort.current?.abort(), [])
+
+  const reset = () => {
+    abort.current?.abort()
+    setResults([])
+    setOpen(false)
+    setState("idle")
+  }
+
   const pick = (p: PlaceResult) => {
+    abort.current?.abort()
+    picked.current = p.label
     onPick(p)
     setQ(p.label)
     setOpen(false)
+    setState("idle")
   }
 
   return (
@@ -77,15 +94,13 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
           aria-hidden
         />
         <Input
+          ref={inputRef}
           id={`${listId}-input`}
           value={q}
           onChange={(e) => {
+            picked.current = null
             setQ(e.target.value)
-            if (e.target.value.trim().length < 3) {
-              setResults([])
-              setOpen(false)
-              setState("idle")
-            }
+            if (e.target.value.trim().length < 3) reset()
           }}
           onFocus={() => results.length && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -104,7 +119,7 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
               setOpen(false)
             }
           }}
-          placeholder="e.g. Mawson Lakes, or 1 King William St"
+          placeholder="Suburb or address"
           className="h-9 bg-card pr-8 pl-8"
           role="combobox"
           aria-expanded={open}
@@ -122,10 +137,9 @@ export function PlaceSearch({ onPick }: { onPick: (place: PlaceResult) => void }
           <button
             type="button"
             onClick={() => {
+              picked.current = null
               setQ("")
-              setResults([])
-              setOpen(false)
-              setState("idle")
+              reset()
             }}
             className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:text-foreground"
             aria-label="Clear search"

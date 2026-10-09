@@ -10,7 +10,9 @@ import { cn } from "@/lib/utils"
 
 import {
   fallbackStyle,
+  FILL_OPACITY,
   GROUP_OUTLINE,
+  LABEL_HALO,
   NO_DATA,
   OPENFREEMAP_STYLE,
   OUTLINE,
@@ -28,9 +30,9 @@ export interface HoverInfo {
 export interface LgaMapProps {
   councils: FeatureCollection
   groups: FeatureCollection
-  /** ABS code → fill colour, for single-council units this year. */
+  /** ABS code → fill colour, for every single-council unit published this year. */
   singleColors: Record<string, string>
-  /** Group geoKey → fill colour, for combined groups this year. */
+  /** Group geoKey → fill colour, for every combined group published this year. */
   groupColors: Record<string, string>
   selectedKey: string | null
   hoveredKey: string | null
@@ -89,13 +91,13 @@ function addLayers(map: MlMap, councils: FeatureCollection, groups: FeatureColle
     id: "lga-single",
     type: "fill",
     source: "councils",
-    paint: { "fill-color": NO_DATA[m], "fill-opacity": 0.88 },
+    paint: { "fill-color": NO_DATA[m], "fill-opacity": FILL_OPACITY[m] },
   })
   add({
     id: "lga-group",
     type: "fill",
     source: "groups",
-    paint: { "fill-color": NO_DATA[m], "fill-opacity": 0.88 },
+    paint: { "fill-color": NO_DATA[m], "fill-opacity": FILL_OPACITY[m] },
   })
   add({
     id: "lga-line",
@@ -137,6 +139,16 @@ function addLayers(map: MlMap, councils: FeatureCollection, groups: FeatureColle
     paint: { "line-color": SELECT_OUTLINE[m], "line-width": 3.5 },
     filter: ["==", ["get", "geoKey"], ""],
   })
+}
+
+/** In dark mode, give basemap labels a dark halo so they read over the orange fills. */
+function tuneLabels(map: MlMap, m: MapMode) {
+  if (m !== "dark") return
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== "symbol" || !layer.layout?.["text-field"]) continue
+    map.setPaintProperty(layer.id, "text-halo-color", LABEL_HALO[m])
+    map.setPaintProperty(layer.id, "text-halo-width", 1.4)
+  }
 }
 
 function applyData(map: MlMap, p: LgaMapProps, m: MapMode) {
@@ -182,6 +194,8 @@ export function LgaMap(props: LgaMapProps) {
       if (cancelled || !container.current) return
       // The worker is served from /public so it loads the same way under every bundler.
       ml.setWorkerUrl("/vendor/maplibre-gl-worker.mjs")
+      // On touch screens one finger scrolls the page; two fingers move the map.
+      const coarse = window.matchMedia("(pointer: coarse)").matches
       const m = new ml.Map({
         container: container.current,
         style: OPENFREEMAP_STYLE[modeRef.current],
@@ -193,6 +207,7 @@ export function LgaMap(props: LgaMapProps) {
         touchPitch: false,
         maxZoom: 13,
         minZoom: 4,
+        cooperativeGestures: coarse,
       })
       map = m
       mapRef.current = m
@@ -213,8 +228,19 @@ export function LgaMap(props: LgaMapProps) {
       m.on("style.load", () => {
         styleLoaded = true
         addLayers(m, propsRef.current.councils, propsRef.current.groups, modeRef.current)
+        tuneLabels(m, modeRef.current)
         applyData(m, propsRef.current, modeRef.current)
         setStatus((s) => (s === "fallback" ? "fallback" : "ready"))
+      })
+      // On narrow maps start the attribution collapsed behind its (i) button.
+      if ((container.current?.clientWidth ?? 0) < 640) {
+        m.getContainer()
+          .querySelector(".maplibregl-ctrl-attrib.maplibregl-compact-show")
+          ?.classList.remove("maplibregl-compact-show")
+      }
+      // The OpenFreeMap styles reference a few icons their sprite lacks; stand in a blank image.
+      m.setMissingStyleImageResolver((id) => {
+        if (!m.hasImage(id)) m.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) })
       })
       m.on("error", (e) => {
         // A style that never loads (offline, blocked) switches to the bundled boundaries.

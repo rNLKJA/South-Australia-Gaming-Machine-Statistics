@@ -7,6 +7,16 @@ export const LGA_LAST_FY: FY = "2024-25"
 export const LGA_FYS = fyRange(LGA_FIRST_FY, LGA_LAST_FY)
 /** The FY 2019/20 LGA release has no machine column; the workbook stores 0 for every area. */
 export const LGA_NO_MACHINES_FY: FY = "2019-20"
+/**
+ * The first release with CBS's lower grouping threshold. FY 2013/14 to 2021/22 releases say an
+ * LGA with "less than 5 venues" is grouped with another; FY 2022/23 onwards say "less than 3".
+ */
+export const GROUPING_RULE_CHANGE_FY: FY = "2022-23"
+
+/** The venue count below which CBS says it merges a council with a neighbour, for a year. */
+export function groupingThreshold(fy: FY): number {
+  return fy >= GROUPING_RULE_CHANGE_FY ? 3 : 5
+}
 
 export type LgaMeasure = "ngr" | "ngrPerMachine" | "machines" | "premises" | "avgPerVenue"
 
@@ -122,6 +132,11 @@ export function unitsForFy(units: LgaUnit[], fy: FY): LgaUnit[] {
 }
 
 export type SortDir = "asc" | "desc"
+export type LgaSortCol = "label" | LgaMeasure
+export interface LgaSort {
+  col: LgaSortCol
+  dir: SortDir
+}
 
 /** Rank units by a measure; units without a value sink to the bottom. */
 export function rankUnits(units: LgaUnit[], measure: LgaMeasure, dir: SortDir = "desc"): LgaUnit[] {
@@ -133,6 +148,21 @@ export function rankUnits(units: LgaUnit[], measure: LgaMeasure, dir: SortDir = 
     if (vb == null) return -1
     return dir === "desc" ? vb - va : va - vb
   })
+}
+
+/** Order units for the ranked table: by area name, or by a measure. */
+export function sortUnits(units: LgaUnit[], sort: LgaSort): LgaUnit[] {
+  if (sort.col !== "label") return rankUnits(units, sort.col, sort.dir)
+  const r = [...units].sort((a, b) => a.label.localeCompare(b.label))
+  return sort.dir === "asc" ? r : r.reverse()
+}
+
+/**
+ * The table sort after the map measure changes: a name sort is kept, any measure sort follows
+ * the new measure (largest first), so the "Ranked" table stays ranked by what is on screen.
+ */
+export function sortForMeasure(sort: LgaSort, measure: LgaMeasure): LgaSort {
+  return sort.col === "label" ? sort : { col: measure, dir: "desc" }
 }
 
 /** For each year, the published unit that contains an ABS council code (or null). */

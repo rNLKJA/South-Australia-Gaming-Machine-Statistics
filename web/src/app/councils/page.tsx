@@ -4,8 +4,9 @@ import Link from "next/link"
 import { Callout } from "@/components/common/callout"
 import { PageHeader } from "@/components/common/page-header"
 import { CouncilExplorer } from "@/components/councils/council-explorer"
-import { lgaUnits } from "@/lib/data"
+import { crosswalk, lgaUnits } from "@/lib/data"
 import { fmtAudCompact, fmtPct } from "@/lib/format"
+import { fyLabel } from "@/lib/fy"
 import { LGA_FYS, LGA_LAST_FY, rankUnits, unitsForFy } from "@/lib/lga"
 import { sum } from "@/lib/stats"
 
@@ -21,6 +22,10 @@ export default function CouncilsPage() {
   const top5 = rankUnits(latest, "ngr").slice(0, 5)
   const top5Share = sum(top5.map((u) => u.ngr)) / total
   const groups = latest.filter((u) => u.kind === "group")
+  // ABS code → the name this site uses for the council (one per code with its own boundary).
+  const councilNames = Object.fromEntries(
+    crosswalk.filter((c) => c.geometry).map((c) => [c.absCode, c.displayName])
+  )
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -37,18 +42,19 @@ export default function CouncilsPage() {
         tone="caution"
         className="mb-8 max-w-4xl"
       >
-        To protect venue confidentiality CBS combines councils with fewer than five venues into
-        groups ({groups.length} groups in FY 2024/25). The original workbook divided each group’s
-        figures equally across its members; this site rebuilds the groups and maps them as one
-        shape, because the equal split is not an observation. Names are matched to ABS council
-        boundaries through a{" "}
+        To protect venue confidentiality CBS combines councils with few venues into groups: fewer
+        than five venues up to FY 2021/22, and fewer than three from FY 2022/23 ({groups.length}{" "}
+        groups in {fyLabel(LGA_LAST_FY)}). The original workbook divided each group’s figures
+        equally across its members; this site rebuilds the groups and maps them as one shape,
+        because the equal split is not an observation. Names are matched to ABS council boundaries
+        through a{" "}
         <Link href="/data-quality#crosswalk" className="link">
           documented crosswalk
         </Link>
         .
       </Callout>
 
-      <CouncilExplorer units={lgaUnits} fys={LGA_FYS} />
+      <CouncilExplorer units={lgaUnits} fys={LGA_FYS} councilNames={councilNames} />
 
       <div className="mt-10 grid gap-6 md:grid-cols-3">
         <Callout title="FY 2019/20">

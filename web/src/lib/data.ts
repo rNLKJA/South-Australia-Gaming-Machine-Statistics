@@ -10,7 +10,6 @@ import statewideJson from "@/data/statewide.json"
 import verificationJson from "@/data/verification.json"
 
 import type {
-  Council,
   CpiPoint,
   CrosswalkEntry,
   LgaRow,
@@ -32,7 +31,6 @@ export const manufacturers = manufacturersJson.rows as ManufacturerMonth[]
 export const lgaRows = lgaJson.rows as LgaRow[]
 export const lgaUnits = lgaJson.units as LgaUnit[]
 export const crosswalk = lgaJson.crosswalk as CrosswalkEntry[]
-export const councils = lgaJson.councils as Council[]
 export const cpi = cpiJson.series as CpiPoint[]
 export const cpiSource = { name: cpiJson.source, url: cpiJson.url }
 export const powerBiVisuals = powerbiJson.visuals as unknown as PowerBiVisual[]

@@ -4,13 +4,18 @@ import pivots from "@/data/info-pivots.json"
 import { crosswalk, lgaRows, lgaUnits, statewide } from "@/lib/data"
 
 import {
+  groupingThreshold,
   LGA_FYS,
+  LGA_MEASURES,
   measureValue,
   rankUnits,
   rebuildUnits,
   reconcile,
+  sortForMeasure,
+  sortUnits,
   unitHistory,
   unitsForFy,
+  type LgaSort,
 } from "./lga"
 import { annualStatewide } from "./statewide"
 
@@ -109,5 +114,52 @@ describe("ranking and history", () => {
     expect(h).toHaveLength(12)
     expect(h.find((x) => x.fy === "2022-23")?.unit?.label).toBe("Grant")
     expect(h.find((x) => x.fy === "2023-24")?.unit?.label).toBe("Grant, Mount Gambier")
+  })
+})
+
+describe("grouping rule", () => {
+  it("uses the threshold printed in each release (5 venues to FY 2021/22, then 3)", () => {
+    expect(groupingThreshold("2013-14")).toBe(5)
+    expect(groupingThreshold("2021-22")).toBe(5)
+    expect(groupingThreshold("2022-23")).toBe(3)
+    expect(groupingThreshold("2024-25")).toBe(3)
+  })
+
+  it("publishes no council alone below the threshold from FY 2022/23", () => {
+    for (const fy of LGA_FYS.filter((f) => f >= "2022-23")) {
+      for (const u of unitsForFy(lgaUnits, fy).filter((x) => x.kind !== "group")) {
+        expect(u.premises).toBeGreaterThanOrEqual(groupingThreshold(fy))
+      }
+    }
+    // Grant, Kangaroo Island and Campbelltown (3 venues each) stand alone under the new rule.
+    const alone = unitsForFy(lgaUnits, "2022-23").filter((u) => u.kind !== "group")
+    for (const name of ["Grant", "Kangaroo Island", "Campbelltown"]) {
+      expect(alone.find((u) => u.label === name)?.premises).toBe(3)
+    }
+  })
+})
+
+describe("ranked table sort", () => {
+  const units = unitsForFy(lgaUnits, "2024-25")
+  const rank = (measure: (typeof LGA_MEASURES)[number]["id"]) =>
+    new Map(rankUnits(units, measure).map((u, i) => [u.id, i + 1]))
+
+  it.each(LGA_MEASURES.map((m) => m.id))(
+    "puts rank 1 first after switching the measure to %s",
+    (measure) => {
+      const sort = sortForMeasure({ col: "ngr", dir: "desc" }, measure)
+      expect(sort).toEqual({ col: measure, dir: "desc" })
+      const rows = sortUnits(units, sort)
+      const r = rank(measure)
+      expect(rows.slice(0, 5).map((u) => r.get(u.id))).toEqual([1, 2, 3, 4, 5])
+    }
+  )
+
+  it("keeps a sort by area name when the measure changes", () => {
+    const byName: LgaSort = { col: "label", dir: "asc" }
+    expect(sortForMeasure(byName, "machines")).toBe(byName)
+    const rows = sortUnits(units, byName)
+    expect(rows[0].label.localeCompare(rows[1].label)).toBeLessThan(0)
+    expect(sortUnits(units, { col: "label", dir: "desc" })[0]).toBe(rows.at(-1))
   })
 })

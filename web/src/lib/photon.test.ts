@@ -29,6 +29,42 @@ describe("parsePhoton", () => {
     ])
   })
 
+  it("labels addresses by number and street, and names by their address", () => {
+    const places = parsePhoton({
+      features: [
+        feature({
+          housenumber: "1",
+          street: "King William Street",
+          district: "Kent Town",
+          city: "Adelaide",
+          postcode: "5067",
+          state: "South Australia",
+        }),
+        feature({
+          housenumber: "25",
+          name: "Grenfell Centre",
+          street: "Grenfell Street",
+          district: "Adelaide",
+          city: "Adelaide",
+          postcode: "5000",
+          state: "South Australia",
+        }),
+        feature({
+          name: "Jetty Road",
+          district: "Glenelg",
+          city: "Adelaide",
+          postcode: "5045",
+          state: "South Australia",
+        }),
+      ],
+    })
+    expect(places.map(({ label, detail }) => ({ label, detail }))).toEqual([
+      { label: "1 King William Street", detail: "Kent Town 5067 SA" },
+      { label: "Grenfell Centre", detail: "25 Grenfell Street, Adelaide 5000 SA" },
+      { label: "Jetty Road", detail: "Glenelg 5045 SA" },
+    ])
+  })
+
   it("de-duplicates and limits", () => {
     const f = feature({ name: "Glenelg", postcode: "5045", state: "South Australia" })
     expect(parsePhoton({ features: [f, f, f] })).toHaveLength(1)

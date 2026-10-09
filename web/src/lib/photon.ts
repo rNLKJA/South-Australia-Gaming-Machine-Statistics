@@ -18,6 +18,8 @@ const photonFeature = z.object({
   geometry: z.object({ coordinates: z.tuple([z.number(), z.number()]) }),
   properties: z.looseObject({
     name: z.string().optional(),
+    housenumber: z.string().optional(),
+    street: z.string().optional(),
     city: z.string().optional(),
     district: z.string().optional(),
     state: z.string().optional(),
@@ -37,11 +39,14 @@ export function parsePhoton(body: unknown, limit = 6): Place[] {
     const p = parsed.data.properties
     if (p.countrycode && p.countrycode !== "AU") continue
     if (p.state && p.state !== "South Australia") continue
-    const label = p.name ?? p.city ?? p.district
+    // Addresses have no name: label them by number and street, so two results on different
+    // streets can be told apart (and aren't mistaken for the suburb or council they sit in).
+    const address = p.street ? [p.housenumber, p.street].filter(Boolean).join(" ") : null
+    const label = p.name ?? address ?? p.district ?? p.city
     if (!label) continue
-    const detail = [p.city && p.city !== label ? p.city : null, p.postcode, "SA"]
-      .filter(Boolean)
-      .join(" ")
+    const locality = [p.district, p.city].find((x) => x && x !== label) ?? null
+    const place = [locality, p.postcode, "SA"].filter(Boolean).join(" ")
+    const detail = address && address !== label ? `${address}, ${place}` : place
     const [lon, lat] = parsed.data.geometry.coordinates
     const key = `${label}|${detail}`
     if (seen.has(key)) continue

@@ -91,12 +91,6 @@ export interface CrosswalkEntry {
   years: FY[]
 }
 
-export interface Council {
-  code: string
-  name: string
-  areaSqKm: number
-}
-
 export interface CpiPoint {
   /** Calendar quarter, e.g. "2009-Q3". */
   quarter: string
