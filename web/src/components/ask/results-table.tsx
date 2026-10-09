@@ -1,5 +1,6 @@
 "use client"
 
+import { ScrollRegion } from "@/components/common/scroll-region"
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ export function ResultsTable({ result }: { result: QueryResult }) {
     return <p className="text-sm text-muted-foreground">The query returned no columns.</p>
   }
   return (
-    <div className="max-h-[28rem] overflow-auto rounded-lg border bg-card">
+    <ScrollRegion className="max-h-[28rem] overflow-auto rounded-lg border bg-card">
       <Table>
         <TableHeader className="sticky top-0 bg-card">
           <TableRow className="hover:bg-transparent">
@@ -68,6 +69,6 @@ export function ResultsTable({ result }: { result: QueryResult }) {
           )}
         </TableBody>
       </Table>
-    </div>
+    </ScrollRegion>
   )
 }

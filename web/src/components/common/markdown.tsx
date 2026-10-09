@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { ScrollRegion } from "@/components/common/scroll-region"
 import { docHref, slugify } from "@/lib/doc-links"
 import { rehypeTypography } from "@/lib/typography"
 import { cn } from "@/lib/utils"
@@ -85,9 +86,9 @@ export function Markdown({
       <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>
     ),
     table: ({ children }) => (
-      <div className="mt-4 overflow-x-auto rounded-lg border bg-card">
+      <ScrollRegion axis="x" className="mt-4 overflow-x-auto rounded-lg border bg-card">
         <table className="w-full min-w-[480px] text-left text-sm">{children}</table>
-      </div>
+      </ScrollRegion>
     ),
     thead: ({ children }) => <thead className="border-b">{children}</thead>,
     tbody: ({ children }) => <tbody className="divide-y">{children}</tbody>,

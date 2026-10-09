@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 
 import { AiSettingsDialog } from "@/components/ai/ai-settings-dialog"
 import { AiLabel } from "@/components/common/ai-label"
+import { ScrollRegion } from "@/components/common/scroll-region"
 import { Segmented } from "@/components/common/segmented"
 import { Button } from "@/components/ui/button"
 import {
@@ -429,7 +430,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                 extra columns): {ci(summary.strict)}.
               </p>
             </div>
-            <div className="max-h-[30rem] overflow-auto rounded-lg border bg-card">
+            <ScrollRegion className="max-h-[30rem] overflow-auto rounded-lg border bg-card">
               <Table>
                 <TableHeader className="sticky top-0 bg-card">
                   <TableRow className="hover:bg-transparent">
@@ -489,7 +490,7 @@ export function EvalHarness({ schema }: { schema: SchemaTable[] }) {
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </ScrollRegion>
           </div>
         </section>
       ) : null}

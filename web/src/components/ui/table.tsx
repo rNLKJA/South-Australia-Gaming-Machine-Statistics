@@ -3,15 +3,18 @@
 import * as React from "react"
 import { cn } from "cn"
 
+import { ScrollRegion } from "@/components/common/scroll-region"
+
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    // focusable while it scrolls sideways, so keyboard users can reach the hidden columns
+    <ScrollRegion axis="x" data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
-    </div>
+    </ScrollRegion>
   )
 }
 
