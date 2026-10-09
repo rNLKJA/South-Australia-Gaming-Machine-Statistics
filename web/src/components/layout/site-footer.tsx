@@ -42,8 +42,8 @@ export function SiteFooter() {
               <li>
                 <a href={site.repo} className="link">
                   Code and original archive on GitHub
-                </a>{" "}
-                (MIT).
+                </a>
+                . The code is MIT licensed; the figures remain CBS’s and the ABS’s.
               </li>
             </ul>
           </div>
