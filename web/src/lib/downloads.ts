@@ -9,6 +9,8 @@ import { site } from "./site"
 import { round } from "./stats"
 import { annualStatewide } from "./statewide"
 
+export type Cell = string | number | boolean | null | undefined
+
 export interface Download {
   file: string
   title: string
@@ -16,6 +18,8 @@ export interface Download {
   rows: number
   columns: string[]
   body: () => string
+  /** The same rows as typed cells (CSV tables only), for the browser SQL database on /ask. */
+  values?: () => Cell[][]
 }
 
 function csv<T>(columns: CsvColumn<T>[], rows: T[]) {
@@ -23,6 +27,7 @@ function csv<T>(columns: CsvColumn<T>[], rows: T[]) {
     columns: columns.map((c) => c.header),
     rows: rows.length,
     body: () => toCsv(columns, rows),
+    values: () => rows.map((r) => columns.map((c) => c.value(r))),
   }
 }
 
