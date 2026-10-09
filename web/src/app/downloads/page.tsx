@@ -26,12 +26,15 @@ export default function DownloadsPage() {
         </p>
       </PageHeader>
 
-      <ul className="grid gap-4 md:grid-cols-2">
+      <h2 id="files" className="sr-only">
+        Files
+      </h2>
+      <ul aria-labelledby="files" className="grid gap-4 md:grid-cols-2">
         {files.map((f) => (
-          <li key={f.file} className="flex flex-col rounded-lg border bg-card p-5">
+          <li key={f.file} className="flex min-w-0 flex-col rounded-lg border bg-card p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-serif text-lg font-semibold">{f.title}</p>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-ink-soft">{f.description}</p>
               </div>
               {f.file.endsWith(".csv") ? (
@@ -61,15 +64,18 @@ export default function DownloadsPage() {
         ))}
       </ul>
 
-      <section aria-labelledby="attribution" className="mt-12 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <div className="rounded-lg border bg-card p-5">
+      <section
+        aria-labelledby="attribution"
+        className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"
+      >
+        <div className="min-w-0 rounded-lg border bg-card p-5">
           <h2 id="attribution" className="text-xl font-semibold">
             Attribution
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">
             Please cite the original publisher when you use these tables:
           </p>
-          <blockquote className="mt-3 border-l-[3px] border-terracotta pl-4 text-sm leading-relaxed">
+          <blockquote className="mt-3 border-l-[3px] border-terracotta pl-4 text-sm leading-relaxed [overflow-wrap:anywhere]">
             {ATTRIBUTION}
           </blockquote>
           <p className="mt-3 text-xs text-muted-foreground">
@@ -78,7 +84,7 @@ export default function DownloadsPage() {
             to {meta.cpiLatestQuarter}.
           </p>
         </div>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Callout title="Licence">
             The underlying statistics are published by the Government of South Australia; check the{" "}
             <a href={site.cbsUrl} className="link">

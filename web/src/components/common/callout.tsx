@@ -29,7 +29,7 @@ export function Callout({
         className={cn("mt-0.5 size-4 shrink-0", tone === "caution" ? "text-ochre" : "text-teal")}
         aria-hidden
       />
-      <div className="space-y-1">
+      <div className="min-w-0 space-y-1">
         {title ? <p className="font-semibold text-foreground">{title}</p> : null}
         <div className="text-ink-soft">{children}</div>
       </div>

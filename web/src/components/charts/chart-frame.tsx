@@ -10,6 +10,7 @@ export function ChartFrame({
   actions,
   children,
   className,
+  headingLevel = "h2",
 }: {
   title: string
   description?: ReactNode
@@ -17,12 +18,15 @@ export function ChartFrame({
   actions?: ReactNode
   children: ReactNode
   className?: string
+  /** The figure title is a heading so screen-reader users can jump between charts. */
+  headingLevel?: "h2" | "h3"
 }) {
+  const Heading = headingLevel
   return (
     <figure className={cn("rounded-lg border bg-card p-4 sm:p-6", className)}>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <figcaption className="max-w-2xl">
-          <p className="font-serif text-xl font-semibold tracking-tight">{title}</p>
+          <Heading className="font-serif text-xl font-semibold tracking-tight">{title}</Heading>
           {description ? (
             <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</div>
           ) : null}

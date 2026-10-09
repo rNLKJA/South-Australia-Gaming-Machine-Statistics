@@ -163,7 +163,7 @@ export default function ManufacturersPage() {
                     <TableHead scope="row" className="font-medium whitespace-nowrap">
                       {fyLabel(y.fy)}
                       {y.months < 12 ? (
-                        <span className="ml-1.5 text-xs font-normal text-ochre">
+                        <span className="ml-1.5 text-xs font-normal text-ochre-ink">
                           {y.months} months
                         </span>
                       ) : null}
