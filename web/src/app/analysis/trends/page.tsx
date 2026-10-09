@@ -194,8 +194,15 @@ export default function TrendsPage() {
             <TableBody>
               {v.its.map((r) => {
                 const f = r.unit === "$m" ? money : (x: number) => fmtAud(x)
-                const ci = (e: { estimate: number; lower: number; upper: number }) =>
-                  fmtInterval(e.estimate, e.lower, e.upper, (x) => signed(x, f))
+                // estimate above its interval, so all six columns fit a desktop-width card
+                const ci = (e: { estimate: number; lower: number; upper: number }) => (
+                  <>
+                    <span className="block">{signed(e.estimate, f)}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      95% CI {signed(e.lower, f)} to {signed(e.upper, f)}
+                    </span>
+                  </>
+                )
                 return (
                   <TableRow key={r.spec.id}>
                     <TableHead scope="row" className="min-w-[13rem] font-medium whitespace-normal">
