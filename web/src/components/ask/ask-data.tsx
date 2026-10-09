@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button"
 import { useAiSettings } from "@/hooks/use-ai-settings"
 import { auditStore } from "@/lib/ai/audit-log"
 import { runAudited } from "@/lib/ai/client"
+import {
+  decisionForRun,
+  discardDraft,
+  isRepeat,
+  sourceAfterDraft,
+  sqlOrigin,
+  type LoggedDecision,
+  type SqlOrigin,
+  type SqlSource,
+} from "@/lib/ai/draft-tracking"
 import { AiError } from "@/lib/ai/errors"
 import { activeModel, PROVIDER_LABEL } from "@/lib/ai/models"
 import {
@@ -48,32 +58,45 @@ ORDER BY financial_year`
 
 /**
  * Ask the data: write SQL yourself, or (with your own key) let a model draft it. Either way the
- * query is shown, checked against the allow-list and run read-only in this browser.
+ * query is shown, checked against the allow-list and run read-only in this browser. Where the
+ * editor's SQL came from is tracked separately from the draft card (lib/ai/draft-tracking), so a
+ * result is labelled whenever a model wrote or seeded the query that produced it, and every run of
+ * a drafted query is recorded in the AI log with the exact SQL that ran.
  */
 export function AskData({ schema, examples }: { schema: SchemaTable[]; examples: string[] }) {
   const { settings, hasKey, keyFor } = useAiSettings()
   const [question, setQuestion] = useState("")
   const [sql, setSql] = useState(STARTER_SQL)
   const [draft, setDraft] = useState<Draft | null>(null)
-  const [decision, setDecision] = useState<HumanDecision | null>(null)
+  /** The model draft the editor's SQL came from (it outlives the draft card). */
+  const [source, setSource] = useState<SqlSource | null>(null)
+  /** Latest decision per audit entry, for display. */
+  const [decisions, setDecisions] = useState<Record<string, HumanDecision>>({})
   const [drafting, setDrafting] = useState(false)
   const [running, setRunning] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [sqlError, setSqlError] = useState<string | null>(null)
   const [result, setResult] = useState<
-    (QueryResult & { origin: "ai" | "edited" | "manual" }) | null
+    (QueryResult & { origin: SqlOrigin; model: string | null }) | null
   >(null)
   const engine = useRef<SqlEngine | null>(null)
+  /** The last decision appended per audit entry, so only exact repeats are skipped. */
+  const logged = useRef(new Map<string, LoggedDecision>())
   const ids = { q: useId(), sql: useId() }
 
   useEffect(() => {
     engine.current = createBrowserEngine(schema.map((t) => t.name))
   }, [schema])
 
-  const record = async (d: HumanDecision, edited?: unknown) => {
-    if (!draft || decision === d) return
-    setDecision(d)
-    await auditStore().setDecision(draft.auditId, d, edited)
+  const record = async (auditId: string, next: LoggedDecision) => {
+    if (isRepeat(next, logged.current.get(auditId))) return
+    logged.current.set(auditId, next)
+    setDecisions((m) => ({ ...m, [auditId]: next.decision }))
+    await auditStore().setDecision(
+      auditId,
+      next.decision,
+      next.decision === "edited" ? { sql: next.sql } : undefined
+    )
   }
 
   const draftSql = async () => {
@@ -99,9 +122,16 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
         provider: PROVIDER_LABEL[r.provider],
         latencyMs: r.latencyMs,
       })
-      setDecision("pending")
+      setDecisions((m) => ({ ...m, [entry.id]: "pending" }))
       setResult(null)
       setSqlError(null)
+      const next = sourceAfterDraft(source, sql, {
+        auditId: entry.id,
+        model: r.model,
+        answerable: r.output.answerable,
+        sql: r.output.sql,
+      })
+      setSource(next)
       if (r.output.answerable) setSql(r.output.sql.trim())
     } catch (e) {
       const err = e instanceof AiError ? e : null
@@ -117,18 +147,15 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
     if (!engine.current) return
     setRunning(true)
     setSqlError(null)
-    const fromDraft = draft?.answer.answerable ? draft.answer.sql.trim() : null
-    const origin: "ai" | "edited" | "manual" =
-      fromDraft == null || decision === "rejected"
-        ? "manual"
-        : sql.trim() === fromDraft
-          ? "ai"
-          : "edited"
+    const src = source
+    const origin = sqlOrigin(src, sql)
     try {
       const r = await engine.current.query(sql)
-      setResult({ ...r, origin })
-      if (origin === "ai") await record("accepted")
-      if (origin === "edited") await record("edited", { sql: sql.trim() })
+      setResult({ ...r, origin, model: src?.model ?? null })
+      if (src) {
+        const next = decisionForRun(origin, sql, logged.current.get(src.auditId))
+        if (next) await record(src.auditId, next)
+      }
     } catch (e) {
       setResult(null)
       setSqlError(
@@ -141,10 +168,14 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
     }
   }
 
-  const discard = async () => {
-    await record("rejected")
-    setDraft(null)
-    setDecision(null)
+  /** Reject a model draft: log it and, if its SQL is in the editor, put back the pre-draft SQL. */
+  const discard = async (auditId: string) => {
+    await record(auditId, { decision: "rejected", sql: null })
+    const after = discardDraft(source, auditId, sql)
+    setSource(after.source)
+    setSql(after.sql)
+    if (after.sql !== sql) setResult(null)
+    if (draft?.auditId === auditId) setDraft(null)
   }
 
   const exportCsv = () => {
@@ -188,7 +219,7 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void draftSql()
           }}
-          rows={2}
+          rows={3}
           placeholder="For example: which council areas had more than 500 machines in FY 2024-25?"
           className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
@@ -226,7 +257,7 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
           <div className="mt-5 rounded-lg border border-ochre/40 bg-ochre-soft/40 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <AiLabel detail={`${draft.provider}, ${draft.model}, ${draft.latencyMs} ms`} />
-              <Button variant="ghost" size="sm" onClick={discard}>
+              <Button variant="ghost" size="sm" onClick={() => discard(draft.auditId)}>
                 <X aria-hidden />
                 Discard draft
               </Button>
@@ -254,8 +285,9 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
               </div>
             ) : null}
             <p className="mt-3 text-xs text-muted-foreground">
-              Check the query below before running it. Decision so far:{" "}
-              <strong>{decision ?? "pending"}</strong> (recorded in the{" "}
+              {draft.answer.answerable ? "Check the query below before running it. " : ""}
+              Decision so far: <strong>{decisions[draft.auditId] ?? "pending"}</strong> (recorded in
+              the{" "}
               <Link href="/ai-log" className="link">
                 AI log
               </Link>
@@ -266,7 +298,7 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
                 variant="outline"
                 size="sm"
                 className="mt-3"
-                onClick={() => record("accepted")}
+                onClick={() => record(draft.auditId, { decision: "accepted", sql: null })}
               >
                 Accept this answer
               </Button>
@@ -283,13 +315,19 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
           One SELECT (or WITH) query over the eight tables listed below. It runs in your browser on
           a read-only copy of the data; at most {MAX_ROWS} rows come back.
         </p>
-        {draft?.answer.answerable && decision !== "rejected" ? (
-          <div className="mt-3">
-            {sql.trim() === draft.answer.sql.trim() ? (
-              <AiLabel detail={`query drafted by ${draft.model}; check it before running`} />
+        {source ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {sqlOrigin(source, sql) === "ai" ? (
+              <AiLabel detail={`query drafted by ${source.model}; check it before running`} />
             ) : (
-              <AiLabel detail={`edited by you from ${draft.model}’s draft`} />
+              <AiLabel detail={`edited by you from ${source.model}’s draft`} />
             )}
+            {draft?.auditId !== source.auditId ? (
+              <Button variant="ghost" size="sm" onClick={() => discard(source.auditId)}>
+                <X aria-hidden />
+                Discard the model’s query
+              </Button>
+            ) : null}
           </div>
         ) : null}
         <label htmlFor={ids.sql} className="sr-only">
@@ -328,15 +366,14 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
                     kind="assisted"
                     detail={
                       result.origin === "ai"
-                        ? `query drafted by ${draft?.model ?? "a model"}, run by you`
-                        : `query drafted by ${draft?.model ?? "a model"}, edited and run by you`
+                        ? `query drafted by ${result.model ?? "a model"}, run by you`
+                        : `query drafted by ${result.model ?? "a model"}, edited and run by you`
                     }
                   />
                 ) : null}
                 <span className="text-muted-foreground">
                   {result.rows.length.toLocaleString("en-AU")} row
-                  {result.rows.length === 1 ? "" : "s"}
-                  {result.truncated ? ` (first ${MAX_ROWS} shown)` : ""} · {result.ms} ms
+                  {result.rows.length === 1 ? "" : "s"} · {result.ms} ms
                 </span>
               </div>
               <Button variant="outline" size="sm" onClick={exportCsv}>
@@ -344,6 +381,12 @@ export function AskData({ schema, examples }: { schema: SchemaTable[]; examples:
                 CSV
               </Button>
             </div>
+            {result.truncated ? (
+              <p role="status" className="text-sm text-ink-soft">
+                Showing the first {MAX_ROWS} rows; the query matched more. Add a LIMIT or a filter
+                to see the rest.
+              </p>
+            ) : null}
             <ResultsTable result={result} />
           </div>
         ) : null}
