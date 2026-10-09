@@ -13,7 +13,7 @@ import {
 import { Segmented } from "@/components/common/segmented"
 import { Switch } from "@/components/ui/switch"
 import { fmtInt } from "@/lib/format"
-import { fyLabel, fyShort, monthLabel } from "@/lib/fy"
+import { fyAxis, fyLabel, fyOfMonth, monthLabel } from "@/lib/fy"
 import { LICENCE_MEASURES, type LicenceMeasure } from "@/lib/licences"
 import { LICENCE_CATEGORIES, type LicenceCategory } from "@/lib/types"
 
@@ -64,9 +64,8 @@ export function LicenceExplorer({
         for (const c of cats) d[c] = p[c] ?? null
         return d
       })
-      const ticks = data
-        .filter((d) => d.key.endsWith("-07") && Number(d.key.slice(0, 4)) % 2 === 1)
-        .map((d) => d.key)
+      // A tick at each July (the start of a financial year); the chart thins them to fit.
+      const ticks = data.filter((d) => d.key.endsWith("-07")).map((d) => d.key)
       const bands: Band[] = [
         { from: "2017-07", to: "2017-09", label: "Missing", tone: "gap" },
         { from: "2020-03", to: "2020-06", label: "COVID-19", tone: "event" },
@@ -120,11 +119,7 @@ export function LicenceExplorer({
           yFormat={(v) => fmtInt(v)}
           valueFormat={(v) => fmtInt(v)}
           xTicks={ticks}
-          xTickFormat={
-            period === "monthly"
-              ? (k) => k.slice(0, 4)
-              : (k) => fyShort(k).replace(/^20/, "’").replace("/", "–")
-          }
+          xTickFormat={period === "monthly" ? (k) => fyAxis(fyOfMonth(k)) : (k) => fyAxis(k)}
           height={340}
           ariaLabel={`${spec.label} stacked by licence category. The table below lists the values.`}
         />
