@@ -1,2 +1,33 @@
+# OS / editor
 .DS_Store
-~$SA Gaming Statistics.xlsx
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Office lock files (e.g. ~$SA Gaming Statistics.xlsx)
+~$*
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-store/
+
+# Env and deployment
+.env
+.env*
+!.env.example
+.vercel
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+
+# Script caches (downloaded source data is re-fetchable)
+scripts/.cache/
