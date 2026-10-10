@@ -10,6 +10,7 @@ import { annualManufacturers, monthlyShares } from "@/lib/manufacturers"
 import { nav, site } from "@/lib/site"
 import { sum } from "@/lib/stats"
 import { annualStatewide, type StatewideYear } from "@/lib/statewide"
+import { cn } from "@/lib/utils"
 
 export default function Home() {
   const years = annualStatewide(statewide)
@@ -38,6 +39,12 @@ export default function Home() {
     "/licences": `${fmtInt(entitlements)} machine entitlements held at June 2025.`,
     "/manufacturers": `Aristocrat supplied ${fmtPct(maker.shares["Aristocrat"], 0)} of machines in FY 2024/25.`,
     "/data-quality": `${fmtInt(found)} of ${fmtInt(total)} figures found in the CBS PDFs; ${plural(exceptions, "exception", "exceptions")}${scanned ? ` and ${plural(scanned, "scanned PDF", "scanned PDFs")}` : ""} listed.`,
+    "/analysis":
+      "Every estimate with an interval: the 2020 break, council funnel plots and when concentration turned.",
+    "/ask":
+      "Query the tidy tables with read-only SQL in your browser; bring your own key to have a model draft it.",
+    "/methods":
+      "Provenance, assumptions, limitations, five decision records, a data card and a model card.",
     "/downloads":
       "Eight tidy CSV tables and a read-me, generated from the same code as the charts.",
   }
@@ -114,13 +121,24 @@ export default function Home() {
           <h2 id="sections" className="text-3xl font-semibold">
             Explore
           </h2>
-          <p className="hidden text-sm text-muted-foreground sm:block">Six sections, one dataset</p>
+          <p className="hidden text-sm text-muted-foreground sm:block">
+            {nav.length} sections, one dataset
+          </p>
         </div>
         <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {nav.map((n, i) => (
-            <li key={n.href} className="bg-card">
+            <li
+              key={n.href}
+              className={cn(
+                "bg-card",
+                // an odd last card spans the two-column row so no empty cell shows the border colour
+                i === nav.length - 1 && nav.length % 2 === 1 && "sm:col-span-2 lg:col-span-1"
+              )}
+            >
               <Link href={n.href} className="group flex h-full flex-col p-5 hover:bg-accent/50">
-                <span className="kicker tabular text-muted-foreground">0{i + 1}</span>
+                <span className="kicker tabular text-muted-foreground">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <span className="mt-2 flex items-center gap-2 font-serif text-xl font-semibold">
                   {n.label}
                   <ArrowRight
