@@ -15,6 +15,11 @@ const eslintConfig = defineConfig([
     // Vendored and generated files.
     "public/**",
     "src/data/**",
+    // Showcase tour output (pnpm showcase).
+    ".showcase/**",
+    ".playwright/**",
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ])
 

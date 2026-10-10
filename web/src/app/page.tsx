@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Play } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
 
@@ -7,7 +7,7 @@ import { fmtChange, fmtInt, fmtMillions, fmtPct } from "@/lib/format"
 import { fyLabel, fyShort } from "@/lib/fy"
 import { annualLicences } from "@/lib/licences"
 import { annualManufacturers, monthlyShares } from "@/lib/manufacturers"
-import { nav, site } from "@/lib/site"
+import { sections, site } from "@/lib/site"
 import { sum } from "@/lib/stats"
 import { annualStatewide, type StatewideYear } from "@/lib/statewide"
 import { cn } from "@/lib/utils"
@@ -78,6 +78,12 @@ export default function Home() {
             >
               Open the council map
             </Link>
+            <Link
+              href="/tour"
+              className="inline-flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-teal hover:bg-accent"
+            >
+              <Play className="size-4" aria-hidden /> Watch the guided tour
+            </Link>
           </div>
         </div>
         <figure className="rounded-lg border bg-card p-5">
@@ -122,17 +128,19 @@ export default function Home() {
             Explore
           </h2>
           <p className="hidden text-sm text-muted-foreground sm:block">
-            {nav.length} sections, one dataset
+            {sections.length} sections, one dataset
           </p>
         </div>
         <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-3">
-          {nav.map((n, i) => (
+          {sections.map((n, i) => (
             <li
               key={n.href}
               className={cn(
                 "bg-card",
                 // an odd last card spans the two-column row so no empty cell shows the border colour
-                i === nav.length - 1 && nav.length % 2 === 1 && "sm:col-span-2 lg:col-span-1"
+                i === sections.length - 1 &&
+                  sections.length % 2 === 1 &&
+                  "sm:col-span-2 lg:col-span-1"
               )}
             >
               <Link href={n.href} className="group flex h-full flex-col p-5 hover:bg-accent/50">

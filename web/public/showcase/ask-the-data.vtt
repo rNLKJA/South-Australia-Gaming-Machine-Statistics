@@ -1,0 +1,43 @@
+WEBVTT
+
+NOTE Ask the data: captions match the on-screen steps.
+
+1
+00:00:00.200 --> 00:00:05.736
+Step 1 of 10. Ask the data: the eight tidy tables load into a read-only SQLite database in your browser.
+
+2
+00:00:05.736 --> 00:00:15.120
+Step 2 of 10. No key is needed for SQL: run the starter query over the annual figures.
+
+3
+00:00:15.120 --> 00:00:24.588
+Step 3 of 10. AI settings: bring your own Anthropic or OpenAI key; it stays in this browser.
+
+4
+00:00:24.588 --> 00:00:31.618
+Step 4 of 10. For this demo: a placeholder key, never a real one; calls to the provider are intercepted. (Mocked AI response for illustration.)
+
+5
+00:00:31.618 --> 00:00:42.352
+Step 5 of 10. Pick an example question and draft SQL: the reply is labelled AI-generated. (Mocked AI response for illustration.)
+
+6
+00:00:42.352 --> 00:00:54.002
+Step 6 of 10. Check the drafted SQL, then run it yourself: the result is labelled AI-assisted. (Mocked AI response for illustration.)
+
+7
+00:00:54.002 --> 00:01:03.735
+Step 7 of 10. The AI log records the call, the model and your decision, with JSON and CSV export. (Mocked AI response for illustration.)
+
+8
+00:01:03.735 --> 00:01:09.679
+Step 8 of 10. Forget key: the placeholder is removed from this browser.
+
+9
+00:01:09.679 --> 00:01:19.416
+Step 9 of 10. Data quality: 4,406 of 4,409 figures found in the CBS PDFs, with the exceptions listed.
+
+10
+00:01:19.416 --> 00:01:27.400
+Step 10 of 10. The Power BI totals summed monthly snapshots; the site uses means and June values instead.
