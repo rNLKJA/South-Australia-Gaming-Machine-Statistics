@@ -35,4 +35,8 @@ export const nav = [
   { href: "/methods", label: "Methods", description: "Methods, decision records and model cards" },
   { href: "/data-quality", label: "Data quality", description: "Checks, gaps and corrections" },
   { href: "/downloads", label: "Downloads", description: "Tidy CSVs with attribution" },
+  { href: "/tour", label: "Tour", description: "Recorded walkthroughs and screenshots" },
 ] as const
+
+/** The data sections (everything in the nav except the guided tour). */
+export const sections = nav.filter((n) => n.href !== "/tour")

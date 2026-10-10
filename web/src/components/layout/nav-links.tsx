@@ -25,8 +25,8 @@ export function NavLinks({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative inline-flex items-center px-2 py-2 text-sm font-medium whitespace-nowrap text-ink-soft transition-colors hover:text-foreground",
-                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:bg-terracotta after:opacity-0 after:transition-opacity",
+                "relative inline-flex items-center px-1.5 py-2 text-sm font-medium whitespace-nowrap text-ink-soft transition-colors hover:text-foreground",
+                "after:absolute after:inset-x-1.5 after:-bottom-px after:h-0.5 after:bg-terracotta after:opacity-0 after:transition-opacity",
                 active && "text-foreground after:opacity-100"
               )}
             >

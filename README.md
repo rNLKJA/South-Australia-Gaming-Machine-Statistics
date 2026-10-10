@@ -36,6 +36,100 @@ The 2026 upgrade adds the statistics around those figures, without changing them
 
 This is a personal project. It is not affiliated with Consumer and Business Services, the Government of South Australia or my employer, and it takes no position for or against gambling. If gambling is affecting you or someone close to you, call the Gambling Help Line on **1800 858 858** or visit [gamblinghelponline.org.au](https://www.gamblinghelponline.org.au).
 
+## Showcase
+
+### A decade of pokies revenue
+
+Statewide net gambling revenue from FY 2009/10 to FY 2024/25: the missing FY 2014/15 release and the 2020 COVID-19 closures marked and explained, nominal against real dollars, then the interrupted time series that estimates the break at reopening with its interval.
+
+![A decade of pokies revenue](docs/showcase/decade-of-revenue.gif)
+
+**Walkthrough steps:**
+
+1. Statewide: net gambling revenue for every financial year, FY 2009/10 to FY 2024/25
+2. FY 2014/15 has no statewide release: the hollow marker is the total from the LGA release
+3. FY 2019/20 is shaded: gaming rooms closed for COVID-19 from late March 2020
+4. By month: NGR falls to almost nothing from April to June 2020, then the series resumes
+5. Real dollars: deflated by the Adelaide CPI to FY 2024/25 dollars, nominal dashed alongside
+6. Both breaks are explained beside the chart rather than smoothed over
+7. Analysis: the interrupted time series puts the jump at reopening at +$9.3m a month, 95% CI +$5.8m to +$12.8m
+8. Paired months compare like-for-like years, with t and bootstrap intervals and effect sizes
+
+### Where the machines are
+
+The council map and ranking by financial year, combined council groups kept whole, one area's history, then the funnel plot that asks which areas really differ from the state rate once their size is allowed for.
+
+![Where the machines are](docs/showcase/where-the-machines-are.gif)
+
+**Walkthrough steps:**
+
+1. Councils: every area CBS published, on a map and in a ranked table
+2. Switch the measure to gaming machines in each council area
+3. Drag the year slider: the map and the ranking follow each year from FY 2013/14
+4. Small councils stay in their combined groups, outlined as one area and never split
+5. Select an area: it is highlighted on the map, with its history across the years
+6. Analysis: a funnel plot of NGR per machine against the state rate, by number of machines
+7. Change the year, then use limits that also allow for the spread between councils
+8. Each area's typical ratio to the state rate, with a 95% interval across its years
+
+### Ask the data
+
+Read-only SQL over the eight tidy tables in the browser, then the optional bring-your-own-key text-to-SQL with the generated query shown before it runs (a mocked reply; no real key is used), the AI audit log, and the data-quality checks behind every figure.
+
+![Ask the data](docs/showcase/ask-the-data.gif)
+
+**Walkthrough steps:**
+
+1. Ask the data: the eight tidy tables load into a read-only SQLite database in your browser
+2. No key is needed for SQL: run the starter query over the annual figures
+3. AI settings: bring your own Anthropic or OpenAI key; it stays in this browser
+4. For this demo: a placeholder key, never a real one; calls to the provider are intercepted _(Mocked AI response for illustration)_
+5. Pick an example question and draft SQL: the reply is labelled AI-generated _(Mocked AI response for illustration)_
+6. Check the drafted SQL, then run it yourself: the result is labelled AI-assisted _(Mocked AI response for illustration)_
+7. The AI log records the call, the model and your decision, with JSON and CSV export _(Mocked AI response for illustration)_
+8. Forget key: the placeholder is removed from this browser
+9. Data quality: 4,406 of 4,409 figures found in the CBS PDFs, with the exceptions listed
+10. The Power BI totals summed monthly snapshots; the site uses means and June values instead
+
+### Feature screenshots
+
+<table>
+<tr>
+<td width="50%"><img src="docs/showcase/01-landing-light.png" alt="Landing page"><br><sub><b>Landing page.</b> Sixteen years of CBS releases in one place, with the headline figures.</sub></td>
+<td width="50%"><img src="docs/showcase/02-landing-dark.png" alt="Landing page, dark mode"><br><sub><b>Landing page, dark mode.</b> The same page in dark mode.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/03-statewide-ngr.png" alt="Statewide trends"><br><sub><b>Statewide trends.</b> Annual NGR with the missing FY 2014/15 release and the 2020 closures marked.</sub></td>
+<td width="50%"><img src="docs/showcase/04-trends-its.png" alt="The 2020 break, with intervals"><br><sub><b>The 2020 break, with intervals.</b> Interrupted time series of monthly NGR with Newey–West intervals.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/05-councils-map.png" alt="Council map"><br><sub><b>Council map.</b> Machines by council area, combined groups kept whole, with the ranked table.</sub></td>
+<td width="50%"><img src="docs/showcase/06-councils-funnel.png" alt="Funnel plot"><br><sub><b>Funnel plot.</b> NGR per machine against the state rate, with limits scaled by area size.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/07-concentration-hhi.png" alt="Manufacturer concentration"><br><sub><b>Manufacturer concentration.</b> Annual HHI with bootstrap intervals and the broken-stick change point.</sub></td>
+<td width="50%"><img src="docs/showcase/08-ai-settings.png" alt="Bring your own key"><br><sub><b>Bring your own key.</b> AI settings: Anthropic by default, OpenAI optional; the key stays in this browser.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/09-ask-mocked-draft.png" alt="Ask the data (mocked reply)"><br><sub><b>Ask the data (mocked reply).</b> A mocked draft for illustration: the SQL is shown, labelled and run by you.</sub></td>
+<td width="50%"><img src="docs/showcase/10-ask-evaluation.png" alt="Text-to-SQL evaluation"><br><sub><b>Text-to-SQL evaluation.</b> 28 fixed questions, execution accuracy with intervals, paired comparisons.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/11-data-quality.png" alt="Data quality"><br><sub><b>Data quality.</b> Every figure checked against its PDF; the exceptions and gaps listed.</sub></td>
+<td width="50%"><img src="docs/showcase/12-methods.png" alt="Methods"><br><sub><b>Methods.</b> Provenance, assumptions, limitations, decision records and the AI use statement.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/13-mobile-landing.png" alt="Mobile: landing"><br><sub><b>Mobile: landing.</b> The landing page at 390 px.</sub></td>
+<td width="50%"><img src="docs/showcase/14-mobile-statewide.png" alt="Mobile: statewide"><br><sub><b>Mobile: statewide.</b> The NGR chart and its controls on a phone.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/showcase/15-mobile-councils.png" alt="Mobile: councils"><br><sub><b>Mobile: councils.</b> The council map on a phone.</sub></td>
+<td width="50%"></td>
+</tr>
+</table>
+
+**See the full guided tour with videos and more screenshots:** [sa-gaming-machine-stats.vercel.app/tour](https://sa-gaming-machine-stats.vercel.app/tour)
+
 ## What's on the site
 
 | Route            | What it shows                                                                                                  |
@@ -62,6 +156,7 @@ Added in the 2026 upgrade:
 | `/methods`                                  | Methods, the AI use statement and links to the decision records                                                    |
 | `/methods/decisions/[record]`               | Decision records DR-001 to DR-006                                                                                  |
 | `/methods/data-card`, `/methods/model-card` | The data card and the model card                                                                                   |
+| `/tour`                                     | Guided tour: three captioned video walkthroughs and screenshots of every key feature                               |
 
 ## Tech stack
 

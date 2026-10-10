@@ -21,7 +21,10 @@
     "format:check": "prettier --check .",
     "sync:maplibre-worker": "node -e \"require('fs').copyFileSync('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs','public/vendor/maplibre-gl-worker.mjs')\"",
     "sync:sqljs": "node -e \"for (const f of ['worker.sql-wasm.js','sql-wasm.wasm']) require('fs').copyFileSync('node_modules/sql.js/dist/'+f,'public/vendor/sqljs/'+f)\"",
-    "docs:sync": "node tools/sync-docs.mjs"
+    "docs:sync": "node tools/sync-docs.mjs",
+    "showcase": "node tools/showcase.mjs",
+    "showcase:test": "SHOWCASE_FAST=1 node tools/showcase.mjs --test-only",
+    "showcase:media": "node tools/showcase-media.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
@@ -44,6 +47,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/turbopack": "^4",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^20",
@@ -55,6 +59,7 @@
     "fake-indexeddb": "^6.2.5",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"
